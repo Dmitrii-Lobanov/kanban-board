@@ -1,0 +1,45 @@
+.column {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #e1e6ef;
+  border-radius: 1rem;
+  background: #f7f9fc;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.title {
+  margin: 0;
+  color: #172033;
+  font-size: 1.125rem;
+}
+
+.count {
+  display: inline-flex;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e7ecf5;
+  color: #3f4a5f;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.tasks {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.empty {
+  margin: 0;
+  padding: 1rem;
+  color: #6c7587;
+  text-align: center;
+}

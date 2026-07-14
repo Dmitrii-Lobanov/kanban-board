@@ -1,5 +1,6 @@
 import type { Task, TaskStatus } from "../../domain/task";
-import { TaskCard } from "../TaskCard/TaskCard";
+import { TaskCard } from "../TaskCard";
+import styles from "./KanbanBoardColumn.module.css";
 
 interface KanbanBoardColumnProps {
   title: string;
@@ -15,17 +16,24 @@ export function KanbanBoardColumn({
   const headingId = `column-${status}`;
 
   return (
-    <section aria-labelledby={headingId}>
-      <header>
-        <h2 id={headingId}>{title}</h2>
-        <span aria-label={`${tasks.length} tasks`}>{tasks.length}</span>
+    <section className={styles.column} aria-labelledby={headingId}>
+      <header className={styles.header}>
+        <h2 id={headingId} className={styles.title}>
+          {title}
+        </h2>
+
+        <span className={styles.count} aria-label={`${tasks.length} tasks`}>
+          {tasks.length}
+        </span>
       </header>
 
-      {tasks.length === 0 ? (
-        <p>No tasks in this column.</p>
-      ) : (
-        tasks.map(task => <TaskCard key={task.id} task={task} />)
-      )}
+      <div className={styles.tasks}>
+        {tasks.length > 0 ? (
+          tasks.map(task => <TaskCard key={task.id} task={task} />)
+        ) : (
+          <p className={styles.empty}>No tasks in this column.</p>
+        )}
+      </div>
     </section>
   );
 }

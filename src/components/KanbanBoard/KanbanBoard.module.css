@@ -1,0 +1,45 @@
+.page {
+  width: min(100% - 2rem, 80rem);
+  margin-inline: auto;
+  padding-block: 3rem;
+}
+
+.pageHeader {
+  max-width: 46rem;
+  margin-bottom: 2rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  color: #53657e;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.heading {
+  margin: 0;
+  color: #101828;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 1.05;
+}
+
+.description {
+  margin: 1rem 0 0;
+  color: #667085;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (width <= 56rem) {
+  .board {
+    grid-template-columns: 1fr;
+  }
+}

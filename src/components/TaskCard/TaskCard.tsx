@@ -1,4 +1,5 @@
 import type { Task } from "../../domain/task";
+import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
   task: Task;
@@ -6,9 +7,12 @@ interface TaskCardProps {
 
 export function TaskCard({ task }: TaskCardProps) {
   return (
-    <article>
-      <h3>{task.title}</h3>
-      <p>Assigned to {task.assignee}</p>
+    <article className={styles.card}>
+      <h3 className={styles.title}>{task.title}</h3>
+
+      <p className={styles.assignee}>
+        Assigned to <strong>{task.assignee}</strong>
+      </p>
     </article>
   );
 }

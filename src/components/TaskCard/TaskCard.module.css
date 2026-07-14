@@ -1,0 +1,20 @@
+.card {
+  padding: 1rem;
+  border: 1px solid #d8dee9;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 0.25rem 0.75rem rgb(15 23 42 / 8%);
+}
+
+.title {
+  margin: 0;
+  color: #172033;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.assignee {
+  margin: 0.75rem 0 0;
+  color: #5c667a;
+  font-size: 0.875rem;
+}
