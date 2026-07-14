@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { initialTasks } from "../data/tasks";
-import type { TaskStatus } from "../domain/task";
-import { KanbanBoardColumn } from "./KanbanBoardColumn";
-import { columns } from "../domain/columns";
+import { initialTasks } from "../../data/initialTasks";
+import type { TaskStatus } from "../../domain/task";
+import { KanbanBoardColumn } from "../KanbanBoardColumn/KanbanBoardColumn";
+import { columns } from "../../domain/columns";
 
 export function KanbanBoard() {
   const [tasks] = useState(initialTasks);

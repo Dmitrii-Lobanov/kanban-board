@@ -1,5 +1,5 @@
-import type { Task, TaskStatus } from "../domain/task";
-import { TaskCard } from "./TaskCard";
+import type { Task, TaskStatus } from "../../domain/task";
+import { TaskCard } from "../TaskCard/TaskCard";
 
 interface KanbanBoardColumnProps {
   title: string;

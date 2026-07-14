@@ -1,4 +1,4 @@
-import type { Task } from "../domain/task";
+import type { Task } from "../../domain/task";
 
 interface TaskCardProps {
   task: Task;
