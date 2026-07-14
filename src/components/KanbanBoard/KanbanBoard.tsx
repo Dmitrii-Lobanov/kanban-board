@@ -33,7 +33,7 @@ function createEmptyTaskGroups(): Record<TaskStatus, Task[]> {
 }
 
 export function KanbanBoard() {
-  const [tasks] = useState<Task[]>(initialTasks);
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
 
   const tasksByStatus = useMemo(
     () =>
@@ -43,6 +43,19 @@ export function KanbanBoard() {
       }, createEmptyTaskGroups()),
     [tasks]
   );
+
+  const handleStatusChange = (taskId: string, nextStatus: TaskStatus) => {
+    setTasks(currentTasks =>
+      currentTasks.map(task =>
+        task.id === taskId
+          ? {
+              ...task,
+              status: nextStatus,
+            }
+          : task
+      )
+    );
+  };
 
   return (
     <main className={styles.page}>
@@ -64,6 +77,7 @@ export function KanbanBoard() {
             title={column.title}
             status={column.status}
             tasks={tasksByStatus[column.status]}
+            onStatusChange={handleStatusChange}
           />
         ))}
       </div>

@@ -18,3 +18,28 @@
   color: #5c667a;
   font-size: 0.875rem;
 }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.actions button {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #c9d2e3;
+  border-radius: 0.5rem;
+  background: #f8fafc;
+  color: #25324a;
+  cursor: pointer;
+}
+
+.actions button:hover:not(:disabled) {
+  background: #eef3f9;
+}
+
+.actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}

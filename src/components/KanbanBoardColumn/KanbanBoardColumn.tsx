@@ -6,12 +6,14 @@ interface KanbanBoardColumnProps {
   title: string;
   status: TaskStatus;
   tasks: Task[];
+  onStatusChange: (taskId: string, status: TaskStatus) => void;
 }
 
 export function KanbanBoardColumn({
   title,
   status,
   tasks,
+  onStatusChange,
 }: KanbanBoardColumnProps) {
   const headingId = `column-${status}`;
 
@@ -29,7 +31,13 @@ export function KanbanBoardColumn({
 
       <div className={styles.tasks}>
         {tasks.length > 0 ? (
-          tasks.map(task => <TaskCard key={task.id} task={task} />)
+          tasks.map(task => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onStatusChange={onStatusChange}
+            />
+          ))
         ) : (
           <p className={styles.empty}>No tasks in this column.</p>
         )}
