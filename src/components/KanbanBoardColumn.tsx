@@ -18,9 +18,7 @@ export function KanbanBoardColumn({
     <section aria-labelledby={headingId}>
       <header>
         <h2 id={headingId}>{title}</h2>
-        <span aria-label={`${tasks.length} tasks`}>
-          {tasks.length}
-        </span>
+        <span aria-label={`${tasks.length} tasks`}>{tasks.length}</span>
       </header>
 
       {tasks.length === 0 ? (
