@@ -3,6 +3,7 @@ import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
   task: Task;
+  isPending: boolean;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
 }
 
@@ -24,14 +25,20 @@ const statusOptions: Array<{
   },
 ];
 
-export function TaskCard({ task, onStatusChange }: TaskCardProps) {
+export function TaskCard({ task, isPending, onStatusChange }: TaskCardProps) {
   return (
-    <article className={styles.card}>
+    <article className={styles.card} aria-busy={isPending}>
       <h3 className={styles.title}>{task.title}</h3>
 
       <p className={styles.assignee}>
         Assigned to <strong>{task.assignee}</strong>
       </p>
+
+      {isPending && (
+        <p className={styles.pending} aria-live="polite">
+          Saving status…
+        </p>
+      )}
 
       <div className={styles.actions} aria-label={`Move ${task.title}`}>
         {statusOptions.map(option => {
@@ -41,7 +48,7 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
             <button
               key={option.status}
               type="button"
-              disabled={isCurrentStatus}
+              disabled={isPending || isCurrentStatus}
               aria-pressed={isCurrentStatus}
               onClick={() => {
                 onStatusChange(task.id, option.status);
