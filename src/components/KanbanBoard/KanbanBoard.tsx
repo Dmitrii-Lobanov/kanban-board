@@ -3,6 +3,7 @@ import { updateTaskStatus } from "../../api/tasks";
 import { initialTasks } from "../../data/initialTasks";
 import type { Task, TaskStatus } from "../../domain/task";
 import { KanbanBoardColumn } from "../KanbanBoardColumn";
+import { TaskFilters } from "../TaskFilters";
 import styles from "./KanbanBoard.module.css";
 
 interface ColumnConfiguration {
@@ -47,6 +48,10 @@ export function KanbanBoard() {
 
   const [taskErrors, setTaskErrors] = useState<TaskErrors>({});
 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [assigneeFilter, setAssigneeFilter] = useState("all");
+
   const [, startTransition] = useTransition();
 
   const [optimisticTasks, updateOptimisticTask] = useOptimistic(
@@ -62,14 +67,34 @@ export function KanbanBoard() {
       )
   );
 
+  const assignees = useMemo(
+    () => Array.from(new Set(confirmedTasks.map(task => task.assignee))).sort(),
+    [confirmedTasks]
+  );
+
+  const visibleTasks = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    return optimisticTasks.filter(task => {
+      const matchesSearch =
+        normalizedQuery.length === 0 ||
+        task.title.toLowerCase().includes(normalizedQuery);
+
+      const matchesAssignee =
+        assigneeFilter === "all" || task.assignee === assigneeFilter;
+
+      return matchesSearch && matchesAssignee;
+    });
+  }, [optimisticTasks, searchQuery, assigneeFilter]);
+
   const tasksByStatus = useMemo(
     () =>
-      optimisticTasks.reduce<Record<TaskStatus, Task[]>>((groups, task) => {
+      visibleTasks.reduce<Record<TaskStatus, Task[]>>((groups, task) => {
         groups[task.status].push(task);
 
         return groups;
       }, createEmptyTaskGroups()),
-    [optimisticTasks]
+    [visibleTasks]
   );
 
   const handleStatusChange = (taskId: string, nextStatus: TaskStatus) => {
@@ -140,6 +165,14 @@ export function KanbanBoard() {
           optimistic updates, and per-task concurrency.
         </p>
       </header>
+
+      <TaskFilters
+        searchQuery={searchQuery}
+        assigneeFilter={assigneeFilter}
+        assignees={assignees}
+        onSearchQueryChange={setSearchQuery}
+        onAssigneeFilterChange={setAssigneeFilter}
+      />
 
       <div className={styles.board}>
         {columns.map(column => (
