@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { updateTaskStatus } from "../../api/tasks";
 import { initialTasks } from "../../data/initialTasks";
 import type { Task, TaskStatus } from "../../domain/task";
@@ -8,6 +8,11 @@ import styles from "./KanbanBoard.module.css";
 interface ColumnConfiguration {
   status: TaskStatus;
   title: string;
+}
+
+interface OptimisticTaskUpdate {
+  taskId: string;
+  status: TaskStatus;
 }
 
 const columns: ColumnConfiguration[] = [
@@ -34,32 +39,39 @@ function createEmptyTaskGroups(): Record<TaskStatus, Task[]> {
 }
 
 export function KanbanBoard() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [confirmedTasks, setConfirmedTasks] = useState<Task[]>(initialTasks);
 
   const [pendingTaskIds, setPendingTaskIds] = useState(() => new Set<string>());
 
+  const [, startTransition] = useTransition();
+
+  const [optimisticTasks, updateOptimisticTask] = useOptimistic(
+    confirmedTasks,
+    (currentTasks: Task[], update: OptimisticTaskUpdate): Task[] =>
+      currentTasks.map(task =>
+        task.id === update.taskId
+          ? {
+              ...task,
+              status: update.status,
+            }
+          : task
+      )
+  );
+
   const tasksByStatus = useMemo(
     () =>
-      tasks.reduce<Record<TaskStatus, Task[]>>((groups, task) => {
+      optimisticTasks.reduce<Record<TaskStatus, Task[]>>((groups, task) => {
         groups[task.status].push(task);
 
         return groups;
       }, createEmptyTaskGroups()),
-    [tasks]
+    [optimisticTasks]
   );
 
-  const handleStatusChange = async (taskId: string, nextStatus: TaskStatus) => {
-    const task = tasks.find(currentTask => currentTask.id === taskId);
+  const handleStatusChange = (taskId: string, nextStatus: TaskStatus) => {
+    const task = optimisticTasks.find(currentTask => currentTask.id === taskId);
 
-    if (!task) {
-      return;
-    }
-
-    if (task.status === nextStatus) {
-      return;
-    }
-
-    if (pendingTaskIds.has(taskId)) {
+    if (!task || task.status === nextStatus || pendingTaskIds.has(taskId)) {
       return;
     }
 
@@ -71,30 +83,37 @@ export function KanbanBoard() {
       return nextIds;
     });
 
-    try {
-      await updateTaskStatus(taskId, nextStatus);
-
-      setTasks(currentTasks =>
-        currentTasks.map(currentTask =>
-          currentTask.id === taskId
-            ? {
-                ...currentTask,
-                status: nextStatus,
-              }
-            : currentTask
-        )
-      );
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setPendingTaskIds(currentIds => {
-        const nextIds = new Set(currentIds);
-
-        nextIds.delete(taskId);
-
-        return nextIds;
+    startTransition(async () => {
+      updateOptimisticTask({
+        taskId,
+        status: nextStatus,
       });
-    }
+
+      try {
+        await updateTaskStatus(taskId, nextStatus);
+
+        setConfirmedTasks(currentTasks =>
+          currentTasks.map(currentTask =>
+            currentTask.id === taskId
+              ? {
+                  ...currentTask,
+                  status: nextStatus,
+                }
+              : currentTask
+          )
+        );
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setPendingTaskIds(currentIds => {
+          const nextIds = new Set(currentIds);
+
+          nextIds.delete(taskId);
+
+          return nextIds;
+        });
+      }
+    });
   };
 
   return (
