@@ -50,3 +50,13 @@
   font-size: 0.875rem;
   font-weight: 600;
 }
+
+.error {
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: #fff1f0;
+  color: #b42318;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}

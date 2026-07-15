@@ -15,6 +15,8 @@ interface OptimisticTaskUpdate {
   status: TaskStatus;
 }
 
+type TaskErrors = Record<string, string | undefined>;
+
 const columns: ColumnConfiguration[] = [
   {
     status: "todo",
@@ -42,6 +44,8 @@ export function KanbanBoard() {
   const [confirmedTasks, setConfirmedTasks] = useState<Task[]>(initialTasks);
 
   const [pendingTaskIds, setPendingTaskIds] = useState(() => new Set<string>());
+
+  const [taskErrors, setTaskErrors] = useState<TaskErrors>({});
 
   const [, startTransition] = useTransition();
 
@@ -83,6 +87,11 @@ export function KanbanBoard() {
       return nextIds;
     });
 
+    setTaskErrors(currentErrors => ({
+      ...currentErrors,
+      [taskId]: undefined,
+    }));
+
     startTransition(async () => {
       updateOptimisticTask({
         taskId,
@@ -102,8 +111,11 @@ export function KanbanBoard() {
               : currentTask
           )
         );
-      } catch (error) {
-        console.error(error);
+      } catch {
+        setTaskErrors(currentErrors => ({
+          ...currentErrors,
+          [taskId]: "Unable to update the task status. Please try again.",
+        }));
       } finally {
         setPendingTaskIds(currentIds => {
           const nextIds = new Set(currentIds);
@@ -137,6 +149,7 @@ export function KanbanBoard() {
             status={column.status}
             tasks={tasksByStatus[column.status]}
             pendingTaskIds={pendingTaskIds}
+            taskErrors={taskErrors}
             onStatusChange={handleStatusChange}
           />
         ))}

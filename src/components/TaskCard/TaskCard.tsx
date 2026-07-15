@@ -4,6 +4,7 @@ import styles from "./TaskCard.module.css";
 interface TaskCardProps {
   task: Task;
   isPending: boolean;
+  error?: string;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
 }
 
@@ -25,7 +26,12 @@ const statusOptions: Array<{
   },
 ];
 
-export function TaskCard({ task, isPending, onStatusChange }: TaskCardProps) {
+export function TaskCard({
+  task,
+  isPending,
+  error,
+  onStatusChange,
+}: TaskCardProps) {
   return (
     <article className={styles.card} aria-busy={isPending}>
       <h3 className={styles.title}>{task.title}</h3>
@@ -61,6 +67,12 @@ export function TaskCard({ task, isPending, onStatusChange }: TaskCardProps) {
           );
         })}
       </div>
+
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
     </article>
   );
 }

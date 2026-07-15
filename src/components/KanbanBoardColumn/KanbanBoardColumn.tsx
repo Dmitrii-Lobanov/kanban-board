@@ -7,6 +7,7 @@ interface KanbanBoardColumnProps {
   status: TaskStatus;
   tasks: Task[];
   pendingTaskIds: ReadonlySet<string>;
+  taskErrors: Record<string, string | undefined>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
 }
 
@@ -15,6 +16,7 @@ export function KanbanBoardColumn({
   status,
   tasks,
   pendingTaskIds,
+  taskErrors,
   onStatusChange,
 }: KanbanBoardColumnProps) {
   const headingId = `column-${status}`;
@@ -37,7 +39,8 @@ export function KanbanBoardColumn({
             <TaskCard
               key={task.id}
               task={task}
-              isPending={pendingTaskIds?.has(task.id)}
+              isPending={pendingTaskIds.has(task.id)}
+              error={taskErrors[task.id]}
               onStatusChange={onStatusChange}
             />
           ))
