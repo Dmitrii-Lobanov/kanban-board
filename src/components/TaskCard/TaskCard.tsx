@@ -1,3 +1,4 @@
+import type { DragEvent } from "react";
 import type { Task, TaskStatus } from "../../domain/task";
 import styles from "./TaskCard.module.css";
 
@@ -6,6 +7,7 @@ interface TaskCardProps {
   isPending: boolean;
   error?: string;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
 }
 
 const statusOptions: Array<{
@@ -31,9 +33,19 @@ export function TaskCard({
   isPending,
   error,
   onStatusChange,
+  onDragStart,
 }: TaskCardProps) {
   return (
-    <article className={styles.card} aria-busy={isPending}>
+    <article
+      className={styles.card}
+      aria-busy={isPending}
+      draggable={!isPending}
+      onDragStart={event => {
+        if (!isPending) {
+          onDragStart(event, task.id);
+        }
+      }}
+    >
       <h3 className={styles.title}>{task.title}</h3>
 
       <p className={styles.assignee}>

@@ -1,3 +1,4 @@
+import type { DragEvent } from "react";
 import type { Task, TaskStatus } from "../../domain/task";
 import { TaskCard } from "../TaskCard";
 import styles from "./KanbanBoardColumn.module.css";
@@ -9,6 +10,11 @@ interface KanbanBoardColumnProps {
   pendingTaskIds: ReadonlySet<string>;
   taskErrors: Record<string, string | undefined>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
+  onDropTask: (
+    event: DragEvent<HTMLElement>,
+    destinationStatus: TaskStatus
+  ) => void;
 }
 
 export function KanbanBoardColumn({
@@ -18,11 +24,23 @@ export function KanbanBoardColumn({
   pendingTaskIds,
   taskErrors,
   onStatusChange,
+  onDragStart,
+  onDropTask,
 }: KanbanBoardColumnProps) {
   const headingId = `column-${status}`;
 
   return (
-    <section className={styles.column} aria-labelledby={headingId}>
+    <section
+      className={styles.column}
+      aria-labelledby={headingId}
+      onDragOver={event => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={event => {
+        onDropTask(event, status);
+      }}
+    >
       <header className={styles.header}>
         <h2 id={headingId} className={styles.title}>
           {title}
@@ -42,6 +60,7 @@ export function KanbanBoardColumn({
               isPending={pendingTaskIds.has(task.id)}
               error={taskErrors[task.id]}
               onStatusChange={onStatusChange}
+              onDragStart={onDragStart}
             />
           ))
         ) : (

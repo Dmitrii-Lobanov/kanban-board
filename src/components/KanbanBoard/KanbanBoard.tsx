@@ -1,4 +1,10 @@
-import { useMemo, useOptimistic, useState, useTransition } from "react";
+import {
+  type DragEvent,
+  useMemo,
+  useOptimistic,
+  useState,
+  useTransition,
+} from "react";
 import { updateTaskStatus } from "../../api/tasks";
 import { initialTasks } from "../../data/initialTasks";
 import type { Task, TaskStatus } from "../../domain/task";
@@ -17,6 +23,8 @@ interface OptimisticTaskUpdate {
 }
 
 type TaskErrors = Record<string, string | undefined>;
+
+const TASK_DRAG_DATA_TYPE = "application/x-kanban-task-id";
 
 const columns: ColumnConfiguration[] = [
   {
@@ -47,9 +55,7 @@ export function KanbanBoard() {
   const [pendingTaskIds, setPendingTaskIds] = useState(() => new Set<string>());
 
   const [taskErrors, setTaskErrors] = useState<TaskErrors>({});
-
   const [searchQuery, setSearchQuery] = useState("");
-
   const [assigneeFilter, setAssigneeFilter] = useState("all");
 
   const [, startTransition] = useTransition();
@@ -153,6 +159,29 @@ export function KanbanBoard() {
     });
   };
 
+  const handleDragStart = (event: DragEvent<HTMLElement>, taskId: string) => {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(TASK_DRAG_DATA_TYPE, taskId);
+    event.dataTransfer.setData("text/plain", taskId);
+  };
+
+  const handleDropTask = (
+    event: DragEvent<HTMLElement>,
+    destinationStatus: TaskStatus
+  ) => {
+    event.preventDefault();
+
+    const taskId =
+      event.dataTransfer.getData(TASK_DRAG_DATA_TYPE) ||
+      event.dataTransfer.getData("text/plain");
+
+    if (!taskId) {
+      return;
+    }
+
+    handleStatusChange(taskId, destinationStatus);
+  };
+
   return (
     <main className={styles.page}>
       <header className={styles.pageHeader}>
@@ -184,6 +213,8 @@ export function KanbanBoard() {
             pendingTaskIds={pendingTaskIds}
             taskErrors={taskErrors}
             onStatusChange={handleStatusChange}
+            onDragStart={handleDragStart}
+            onDropTask={handleDropTask}
           />
         ))}
       </div>
