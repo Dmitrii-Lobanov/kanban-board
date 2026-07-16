@@ -9,6 +9,8 @@ vi.mock("../../api/tasks", () => ({
 }));
 
 const mockedUpdateTaskStatus = vi.mocked(updateTaskStatus);
+const optimisticTaskTitle = "Model optimistic task state";
+const draggableTaskTitle = "Build native drag-and-drop";
 
 interface DeferredPromise<T> {
   promise: Promise<T>;
@@ -60,7 +62,7 @@ describe("KanbanBoard", () => {
 
     render(<KanbanBoard />);
 
-    const taskCard = getTaskCard("Implement optimistic updates");
+    const taskCard = getTaskCard(optimisticTaskTitle);
 
     expect(taskCard).not.toBeNull();
 
@@ -72,7 +74,7 @@ describe("KanbanBoard", () => {
 
     expect(
       within(getColumn("In Progress")).getByRole("heading", {
-        name: "Implement optimistic updates",
+        name: optimisticTaskTitle,
       })
     ).toBeInTheDocument();
 
@@ -94,7 +96,7 @@ describe("KanbanBoard", () => {
 
     render(<KanbanBoard />);
 
-    const taskCard = getTaskCard("Implement optimistic updates");
+    const taskCard = getTaskCard(optimisticTaskTitle);
 
     expect(taskCard).not.toBeNull();
 
@@ -107,7 +109,7 @@ describe("KanbanBoard", () => {
     await waitFor(() => {
       expect(
         within(getColumn("In Progress")).getByRole("heading", {
-          name: "Implement optimistic updates",
+          name: optimisticTaskTitle,
         })
       ).toBeInTheDocument();
     });
@@ -122,7 +124,7 @@ describe("KanbanBoard", () => {
 
     render(<KanbanBoard />);
 
-    const taskCard = getTaskCard("Implement optimistic updates");
+    const taskCard = getTaskCard(optimisticTaskTitle);
 
     expect(taskCard).not.toBeNull();
 
@@ -134,7 +136,7 @@ describe("KanbanBoard", () => {
 
     expect(
       within(getColumn("In Progress")).getByRole("heading", {
-        name: "Implement optimistic updates",
+        name: optimisticTaskTitle,
       })
     ).toBeInTheDocument();
 
@@ -151,16 +153,14 @@ describe("KanbanBoard", () => {
     await waitFor(() => {
       expect(
         within(getColumn("Todo")).getByRole("heading", {
-          name: "Implement optimistic updates",
+          name: optimisticTaskTitle,
         })
       ).toBeInTheDocument();
     });
 
-    expect(
-      screen.getByRole("alert", {
-        name: /unable to update the task status/i,
-      })
-    ).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /unable to update the task status/i
+    );
   });
 
   it("disables only the task whose request is pending", async () => {
@@ -172,7 +172,7 @@ describe("KanbanBoard", () => {
 
     render(<KanbanBoard />);
 
-    const firstTask = getTaskCard("Implement optimistic updates");
+    const firstTask = getTaskCard(optimisticTaskTitle);
 
     expect(firstTask).not.toBeNull();
 
@@ -182,8 +182,8 @@ describe("KanbanBoard", () => {
       })
     );
 
-    const pendingTask = getTaskCard("Implement optimistic updates");
-    const unrelatedTask = getTaskCard("Build native drag-and-drop");
+    const pendingTask = getTaskCard(optimisticTaskTitle);
+    const unrelatedTask = getTaskCard(draggableTaskTitle);
 
     expect(pendingTask).not.toBeNull();
     expect(unrelatedTask).not.toBeNull();
@@ -215,7 +215,7 @@ describe("KanbanBoard", () => {
 
     render(<KanbanBoard />);
 
-    const taskCard = getTaskCard("Implement optimistic updates");
+    const taskCard = getTaskCard(optimisticTaskTitle);
 
     expect(taskCard).not.toBeNull();
 
@@ -225,7 +225,7 @@ describe("KanbanBoard", () => {
       })
     );
 
-    const pendingTask = getTaskCard("Implement optimistic updates");
+    const pendingTask = getTaskCard(optimisticTaskTitle);
 
     expect(pendingTask).not.toBeNull();
 
@@ -255,8 +255,8 @@ describe("KanbanBoard", () => {
 
     render(<KanbanBoard />);
 
-    const firstTask = getTaskCard("Implement optimistic updates");
-    const secondTask = getTaskCard("Build native drag-and-drop");
+    const firstTask = getTaskCard(optimisticTaskTitle);
+    const secondTask = getTaskCard(draggableTaskTitle);
 
     expect(firstTask).not.toBeNull();
     expect(secondTask).not.toBeNull();
@@ -277,13 +277,13 @@ describe("KanbanBoard", () => {
 
     expect(
       within(getColumn("In Progress")).getByRole("heading", {
-        name: "Implement optimistic updates",
+        name: optimisticTaskTitle,
       })
     ).toBeInTheDocument();
 
     expect(
       within(getColumn("Done")).getByRole("heading", {
-        name: "Build native drag-and-drop",
+        name: draggableTaskTitle,
       })
     ).toBeInTheDocument();
 
