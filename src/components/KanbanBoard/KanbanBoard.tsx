@@ -1,20 +1,12 @@
-import {
-  type DragEvent,
-  useMemo,
-  useOptimistic,
-  useRef,
-  useState,
-  useTransition,
-} from "react";
-import { updateTaskStatus } from "../../api/tasks";
+import { type DragEvent, useMemo, useState } from "react";
 import { initialTasks } from "../../data/initialTasks";
-import type { Task, TaskStatus } from "../../domain/task";
+import type { TaskStatus } from "../../domain/task";
 import {
   filterTasks,
   getAssignees,
   groupTasksByStatus,
-  replaceTaskStatus,
 } from "../../domain/taskUtils";
+import { useTaskStatusMutation } from "../../hooks/useTaskStatusMutation";
 import { KanbanBoardColumn } from "../KanbanBoardColumn";
 import { TaskFilters } from "../TaskFilters";
 import styles from "./KanbanBoard.module.css";
@@ -23,13 +15,6 @@ interface ColumnConfiguration {
   status: TaskStatus;
   title: string;
 }
-
-interface OptimisticTaskUpdate {
-  taskId: string;
-  status: TaskStatus;
-}
-
-type TaskErrors = Record<string, string | undefined>;
 
 const TASK_DRAG_DATA_TYPE = "application/x-kanban-task-id";
 
@@ -49,107 +34,27 @@ const columns: ColumnConfiguration[] = [
 ];
 
 export function KanbanBoard() {
-  const [confirmedTasks, setConfirmedTasks] = useState<Task[]>(initialTasks);
+  const { tasks, pendingTaskIds, taskErrors, changeTaskStatus } =
+    useTaskStatusMutation(initialTasks);
 
-  const [pendingTaskIds, setPendingTaskIds] = useState(() => new Set<string>());
-
-  const pendingTaskIdsRef = useRef(new Set<string>());
-
-  const [taskErrors, setTaskErrors] = useState<TaskErrors>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
 
-  const [, startTransition] = useTransition();
-
-  const [optimisticTasks, updateOptimisticTask] = useOptimistic(
-    confirmedTasks,
-    (currentTasks: Task[], update: OptimisticTaskUpdate): Task[] =>
-      replaceTaskStatus(currentTasks, update.taskId, update.status)
-  );
-
-  const assignees = useMemo(
-    () => getAssignees(confirmedTasks),
-    [confirmedTasks]
-  );
+  const assignees = useMemo(() => getAssignees(tasks), [tasks]);
 
   const visibleTasks = useMemo(
     () =>
-      filterTasks(optimisticTasks, {
+      filterTasks(tasks, {
         searchQuery,
         assignee: assigneeFilter,
       }),
-    [optimisticTasks, searchQuery, assigneeFilter]
+    [tasks, searchQuery, assigneeFilter]
   );
 
   const tasksByStatus = useMemo(
     () => groupTasksByStatus(visibleTasks),
     [visibleTasks]
   );
-
-  const markTaskPending = (taskId: string) => {
-    pendingTaskIdsRef.current.add(taskId);
-
-    setPendingTaskIds(currentIds => {
-      const nextIds = new Set(currentIds);
-
-      nextIds.add(taskId);
-
-      return nextIds;
-    });
-  };
-
-  const clearTaskPending = (taskId: string) => {
-    pendingTaskIdsRef.current.delete(taskId);
-
-    setPendingTaskIds(currentIds => {
-      const nextIds = new Set(currentIds);
-
-      nextIds.delete(taskId);
-
-      return nextIds;
-    });
-  };
-
-  const handleStatusChange = (taskId: string, nextStatus: TaskStatus) => {
-    const task = optimisticTasks.find(currentTask => currentTask.id === taskId);
-
-    if (
-      !task ||
-      task.status === nextStatus ||
-      pendingTaskIdsRef.current.has(taskId)
-    ) {
-      return;
-    }
-
-    markTaskPending(taskId);
-
-    setTaskErrors(currentErrors => ({
-      ...currentErrors,
-      [taskId]: undefined,
-    }));
-
-    startTransition(async () => {
-      updateOptimisticTask({
-        taskId,
-        status: nextStatus,
-      });
-
-      try {
-        await updateTaskStatus(taskId, nextStatus);
-
-        setConfirmedTasks(currentTasks =>
-          replaceTaskStatus(currentTasks, taskId, nextStatus)
-        );
-      } catch {
-        setTaskErrors(currentErrors => ({
-          ...currentErrors,
-          [taskId]: "Unable to update the task status. Please try again.",
-        }));
-      } finally {
-        clearTaskPending(taskId);
-      }
-    });
-  };
 
   const handleDragStart = (event: DragEvent<HTMLElement>, taskId: string) => {
     event.dataTransfer.effectAllowed = "move";
@@ -171,7 +76,7 @@ export function KanbanBoard() {
       return;
     }
 
-    handleStatusChange(taskId, destinationStatus);
+    changeTaskStatus(taskId, destinationStatus);
   };
 
   return (
@@ -204,7 +109,7 @@ export function KanbanBoard() {
             tasks={tasksByStatus[column.status]}
             pendingTaskIds={pendingTaskIds}
             taskErrors={taskErrors}
-            onStatusChange={handleStatusChange}
+            onStatusChange={changeTaskStatus}
             onDragStart={handleDragStart}
             onDropTask={handleDropTask}
           />
