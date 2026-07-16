@@ -1,4 +1,4 @@
-import type { DragEvent } from "react";
+import { type DragEvent, useId } from "react";
 import type { Task, TaskStatus } from "../../domain/task";
 import styles from "./TaskCard.module.css";
 
@@ -35,10 +35,24 @@ export function TaskCard({
   onStatusChange,
   onDragStart,
 }: TaskCardProps) {
+  const generatedId = useId();
+  const pendingMessageId = `${generatedId}-pending`;
+  const errorMessageId = `${generatedId}-error`;
+  const dragInstructionsId = `${generatedId}-drag-instructions`;
+
+  const describedBy = [
+    dragInstructionsId,
+    isPending ? pendingMessageId : undefined,
+    error ? errorMessageId : undefined,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <article
       className={styles.card}
       aria-busy={isPending}
+      aria-describedby={describedBy}
       draggable={!isPending}
       onDragStart={event => {
         if (!isPending) {
@@ -52,8 +66,13 @@ export function TaskCard({
         Assigned to <strong>{task.assignee}</strong>
       </p>
 
+      <p id={dragInstructionsId} className={styles.visuallyHidden}>
+        This task can be moved using the buttons below. Pointer users can also
+        drag it into another column.
+      </p>
+
       {isPending && (
-        <p className={styles.pending} aria-live="polite">
+        <p id={pendingMessageId} className={styles.pending} aria-live="polite">
           Saving status…
         </p>
       )}
@@ -73,7 +92,7 @@ export function TaskCard({
               }}
             >
               {isCurrentStatus
-                ? `In ${option.label}`
+                ? `Currently in ${option.label}`
                 : `Move to ${option.label}`}
             </button>
           );
@@ -81,7 +100,7 @@ export function TaskCard({
       </div>
 
       {error && (
-        <p className={styles.error} role="alert">
+        <p id={errorMessageId} className={styles.error} role="alert">
           {error}
         </p>
       )}
