@@ -102,14 +102,14 @@ The application separates presentation, business logic, asynchronous mutations, 
 
 Instead of maintaining multiple task collections, the application stores a single task array and derives every UI representation from it.
 
-| State | Purpose |
-|-------|---------|
-| `confirmedTasks` | Last server-confirmed state |
-| `optimisticTasks` | Temporary optimistic UI |
-| `pendingTaskIds` | Per-task loading state |
-| `taskErrors` | Inline mutation errors |
-| `searchQuery` | Title search |
-| `assigneeFilter` | Assignee filtering |
+| State             | Purpose                     |
+| ----------------- | --------------------------- |
+| `confirmedTasks`  | Last server-confirmed state |
+| `optimisticTasks` | Temporary optimistic UI     |
+| `pendingTaskIds`  | Per-task loading state      |
+| `taskErrors`      | Inline mutation errors      |
+| `searchQuery`     | Title search                |
+| `assigneeFilter`  | Assignee filtering          |
 
 This separation keeps the UI predictable while supporting optimistic updates and concurrent mutations.
 
