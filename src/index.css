@@ -7,14 +7,25 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #101828;
-  background: #eef2f7;
+  color: #172033;
+  background:
+    radial-gradient(
+      circle at top left,
+      rgb(99 102 241 / 12%),
+      transparent 32rem
+    ),
+    linear-gradient(180deg, #f8faff 0%, #eef2f8 100%);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  min-width: 20rem;
+  min-height: 100%;
 }
 
 body {
@@ -27,4 +38,13 @@ button,
 input,
 select {
   font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  color: #ffffff;
+  background: #4f46e5;
 }

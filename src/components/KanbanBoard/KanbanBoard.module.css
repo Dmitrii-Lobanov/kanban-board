@@ -1,45 +1,67 @@
 .page {
-  width: min(100% - 2rem, 80rem);
+  width: min(100% - 2rem, 86rem);
   margin-inline: auto;
-  padding-block: 3rem;
+  padding-block: clamp(2rem, 6vw, 4.5rem);
 }
 
 .pageHeader {
-  max-width: 46rem;
+  max-width: 50rem;
   margin-bottom: 2rem;
 }
 
 .eyebrow {
-  margin: 0 0 0.5rem;
-  color: #53657e;
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  margin: 0 0 0.75rem;
+  color: #4f46e5;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .heading {
   margin: 0;
-  color: #101828;
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  line-height: 1.05;
+  color: #111827;
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
 }
 
 .description {
-  margin: 1rem 0 0;
+  max-width: 44rem;
+  margin: 1.25rem 0 0;
   color: #667085;
-  font-size: 1.05rem;
-  line-height: 1.6;
+  font-size: clamp(1rem, 2vw, 1.125rem);
+  line-height: 1.7;
 }
 
 .board {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(18rem, 1fr));
+  align-items: start;
   gap: 1rem;
 }
 
-@media (width <= 56rem) {
+@media (width <= 64rem) {
   .board {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(17rem, 1fr));
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .board > * {
+    scroll-snap-align: start;
+  }
+}
+
+@media (width <= 40rem) {
+  .page {
+    width: min(100% - 1rem, 86rem);
+    padding-block: 1.5rem;
+  }
+
+  .pageHeader {
+    margin-bottom: 1.5rem;
   }
 }
