@@ -1,4 +1,4 @@
-import type { DragEvent } from "react";
+import { type DragEvent, useState } from "react";
 import type { Task, TaskStatus } from "../../domain/task";
 import { TaskCard } from "../TaskCard";
 import styles from "./KanbanBoardColumn.module.css";
@@ -27,19 +27,42 @@ export function KanbanBoardColumn({
   onDragStart,
   onDropTask,
 }: KanbanBoardColumnProps) {
+  const [isDragOver, setIsDragOver] = useState(false);
+
   const headingId = `column-${status}`;
+
+  const handleDragOver = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLElement>) => {
+    const nextTarget = event.relatedTarget;
+
+    if (
+      nextTarget instanceof Node &&
+      event.currentTarget.contains(nextTarget)
+    ) {
+      return;
+    }
+
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLElement>) => {
+    setIsDragOver(false);
+    onDropTask(event, status);
+  };
 
   return (
     <section
-      className={styles.column}
+      className={`${styles.column} ${isDragOver ? styles.dragOver : ""}`}
       aria-labelledby={headingId}
-      onDragOver={event => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-      }}
-      onDrop={event => {
-        onDropTask(event, status);
-      }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <header className={styles.header}>
         <h2 id={headingId} className={styles.title}>
