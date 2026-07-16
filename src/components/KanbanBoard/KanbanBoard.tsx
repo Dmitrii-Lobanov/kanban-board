@@ -10,6 +10,12 @@ import { initialTasks } from "../../data/initialTasks";
 import type { Task, TaskStatus } from "../../domain/task";
 import { KanbanBoardColumn } from "../KanbanBoardColumn";
 import { TaskFilters } from "../TaskFilters";
+import {
+  filterTasks,
+  getAssignees,
+  groupTasksByStatus,
+  replaceTaskStatus,
+} from "../../domain/taskUtils";
 import styles from "./KanbanBoard.module.css";
 
 interface ColumnConfiguration {
@@ -63,43 +69,25 @@ export function KanbanBoard() {
   const [optimisticTasks, updateOptimisticTask] = useOptimistic(
     confirmedTasks,
     (currentTasks: Task[], update: OptimisticTaskUpdate): Task[] =>
-      currentTasks.map(task =>
-        task.id === update.taskId
-          ? {
-              ...task,
-              status: update.status,
-            }
-          : task
-      )
+      replaceTaskStatus(currentTasks, update.taskId, update.status)
   );
 
   const assignees = useMemo(
-    () => Array.from(new Set(confirmedTasks.map(task => task.assignee))).sort(),
+    () => getAssignees(confirmedTasks),
     [confirmedTasks]
   );
 
-  const visibleTasks = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-
-    return optimisticTasks.filter(task => {
-      const matchesSearch =
-        normalizedQuery.length === 0 ||
-        task.title.toLowerCase().includes(normalizedQuery);
-
-      const matchesAssignee =
-        assigneeFilter === "all" || task.assignee === assigneeFilter;
-
-      return matchesSearch && matchesAssignee;
-    });
-  }, [optimisticTasks, searchQuery, assigneeFilter]);
+  const visibleTasks = useMemo(
+    () =>
+      filterTasks(optimisticTasks, {
+        searchQuery,
+        assignee: assigneeFilter,
+      }),
+    [optimisticTasks, searchQuery, assigneeFilter]
+  );
 
   const tasksByStatus = useMemo(
-    () =>
-      visibleTasks.reduce<Record<TaskStatus, Task[]>>((groups, task) => {
-        groups[task.status].push(task);
-
-        return groups;
-      }, createEmptyTaskGroups()),
+    () => groupTasksByStatus(visibleTasks),
     [visibleTasks]
   );
 
@@ -133,14 +121,7 @@ export function KanbanBoard() {
         await updateTaskStatus(taskId, nextStatus);
 
         setConfirmedTasks(currentTasks =>
-          currentTasks.map(currentTask =>
-            currentTask.id === taskId
-              ? {
-                  ...currentTask,
-                  status: nextStatus,
-                }
-              : currentTask
-          )
+          replaceTaskStatus(currentTasks, taskId, nextStatus)
         );
       } catch {
         setTaskErrors(currentErrors => ({
