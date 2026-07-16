@@ -2,20 +2,21 @@ import {
   type DragEvent,
   useMemo,
   useOptimistic,
+  useRef,
   useState,
   useTransition,
 } from "react";
 import { updateTaskStatus } from "../../api/tasks";
 import { initialTasks } from "../../data/initialTasks";
 import type { Task, TaskStatus } from "../../domain/task";
-import { KanbanBoardColumn } from "../KanbanBoardColumn";
-import { TaskFilters } from "../TaskFilters";
 import {
   filterTasks,
   getAssignees,
   groupTasksByStatus,
   replaceTaskStatus,
 } from "../../domain/taskUtils";
+import { KanbanBoardColumn } from "../KanbanBoardColumn";
+import { TaskFilters } from "../TaskFilters";
 import styles from "./KanbanBoard.module.css";
 
 interface ColumnConfiguration {
@@ -47,18 +48,12 @@ const columns: ColumnConfiguration[] = [
   },
 ];
 
-function createEmptyTaskGroups(): Record<TaskStatus, Task[]> {
-  return {
-    todo: [],
-    "in-progress": [],
-    done: [],
-  };
-}
-
 export function KanbanBoard() {
   const [confirmedTasks, setConfirmedTasks] = useState<Task[]>(initialTasks);
 
   const [pendingTaskIds, setPendingTaskIds] = useState(() => new Set<string>());
+
+  const pendingTaskIdsRef = useRef(new Set<string>());
 
   const [taskErrors, setTaskErrors] = useState<TaskErrors>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -91,12 +86,8 @@ export function KanbanBoard() {
     [visibleTasks]
   );
 
-  const handleStatusChange = (taskId: string, nextStatus: TaskStatus) => {
-    const task = optimisticTasks.find(currentTask => currentTask.id === taskId);
-
-    if (!task || task.status === nextStatus || pendingTaskIds.has(taskId)) {
-      return;
-    }
+  const markTaskPending = (taskId: string) => {
+    pendingTaskIdsRef.current.add(taskId);
 
     setPendingTaskIds(currentIds => {
       const nextIds = new Set(currentIds);
@@ -105,6 +96,32 @@ export function KanbanBoard() {
 
       return nextIds;
     });
+  };
+
+  const clearTaskPending = (taskId: string) => {
+    pendingTaskIdsRef.current.delete(taskId);
+
+    setPendingTaskIds(currentIds => {
+      const nextIds = new Set(currentIds);
+
+      nextIds.delete(taskId);
+
+      return nextIds;
+    });
+  };
+
+  const handleStatusChange = (taskId: string, nextStatus: TaskStatus) => {
+    const task = optimisticTasks.find(currentTask => currentTask.id === taskId);
+
+    if (
+      !task ||
+      task.status === nextStatus ||
+      pendingTaskIdsRef.current.has(taskId)
+    ) {
+      return;
+    }
+
+    markTaskPending(taskId);
 
     setTaskErrors(currentErrors => ({
       ...currentErrors,
@@ -129,13 +146,7 @@ export function KanbanBoard() {
           [taskId]: "Unable to update the task status. Please try again.",
         }));
       } finally {
-        setPendingTaskIds(currentIds => {
-          const nextIds = new Set(currentIds);
-
-          nextIds.delete(taskId);
-
-          return nextIds;
-        });
+        clearTaskPending(taskId);
       }
     });
   };
