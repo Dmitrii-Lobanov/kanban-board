@@ -188,14 +188,14 @@ Presentation, business logic, asynchronous mutations, and state transformations 
 
 Instead of storing multiple collections, the application keeps a single task collection and derives every UI representation.
 
-| State | Purpose |
-|--------|----------|
-| confirmedTasks | Server-confirmed state |
+| State           | Purpose                 |
+| --------------- | ----------------------- |
+| confirmedTasks  | Server-confirmed state  |
 | optimisticTasks | Temporary optimistic UI |
-| pendingTaskIds | Per-task loading |
-| taskErrors | Inline errors |
-| searchQuery | Search |
-| assigneeFilter | Filtering |
+| pendingTaskIds  | Per-task loading        |
+| taskErrors      | Inline errors           |
+| searchQuery     | Search                  |
+| assigneeFilter  | Filtering               |
 
 ---
 
