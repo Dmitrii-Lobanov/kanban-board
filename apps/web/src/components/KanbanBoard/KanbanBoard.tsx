@@ -1,6 +1,11 @@
-import { type DragEvent, useMemo, useState } from "react";
-import { initialTasks } from "../../data/initialTasks";
-import type { TaskStatus } from "../../domain/task";
+import {
+  type DragEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { getInitialTasks } from "../../api/boards";
+import type { Task, TaskStatus } from "../../domain/task";
 import {
   filterTasks,
   getAssignees,
@@ -33,7 +38,11 @@ const columns: ColumnConfiguration[] = [
   },
 ];
 
-export function KanbanBoard() {
+interface BoardContentProps {
+  initialTasks: Task[];
+}
+
+function BoardContent({ initialTasks }: BoardContentProps) {
   const { tasks, pendingTaskIds, taskErrors, changeTaskStatus } =
     useTaskStatusMutation(initialTasks);
 
@@ -48,15 +57,18 @@ export function KanbanBoard() {
         searchQuery,
         assignee: assigneeFilter,
       }),
-    [tasks, searchQuery, assigneeFilter]
+    [tasks, searchQuery, assigneeFilter],
   );
 
   const tasksByStatus = useMemo(
     () => groupTasksByStatus(visibleTasks),
-    [visibleTasks]
+    [visibleTasks],
   );
 
-  const handleDragStart = (event: DragEvent<HTMLElement>, taskId: string) => {
+  const handleDragStart = (
+    event: DragEvent<HTMLElement>,
+    taskId: string,
+  ) => {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData(TASK_DRAG_DATA_TYPE, taskId);
     event.dataTransfer.setData("text/plain", taskId);
@@ -64,7 +76,7 @@ export function KanbanBoard() {
 
   const handleDropTask = (
     event: DragEvent<HTMLElement>,
-    destinationStatus: TaskStatus
+    destinationStatus: TaskStatus,
   ) => {
     event.preventDefault();
 
@@ -80,18 +92,7 @@ export function KanbanBoard() {
   };
 
   return (
-    <main className={styles.page}>
-      <header className={styles.pageHeader}>
-        <p className={styles.eyebrow}>Frontend system design case study</p>
-
-        <h1 className={styles.heading}>Reliable Kanban Board</h1>
-
-        <p className={styles.description}>
-          A React and TypeScript implementation focused on state consistency,
-          optimistic updates, and per-task concurrency.
-        </p>
-      </header>
-
+    <>
       <TaskFilters
         searchQuery={searchQuery}
         assigneeFilter={assigneeFilter}
@@ -115,6 +116,58 @@ export function KanbanBoard() {
           />
         ))}
       </div>
+    </>
+  );
+}
+
+export function KanbanBoard() {
+  const [initialTasks, setInitialTasks] = useState<Task[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadBoard(): Promise<void> {
+      try {
+        const tasks = await getInitialTasks();
+
+        if (!controller.signal.aborted) {
+          setInitialTasks(tasks);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setLoadError("Unable to load the board. Please try again.");
+        }
+      }
+    }
+
+    void loadBoard();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  return (
+    <main className={styles.page}>
+      <header className={styles.pageHeader}>
+        <p className={styles.eyebrow}>Full-stack system design case study</p>
+
+        <h1 className={styles.heading}>Reliable Kanban Board</h1>
+
+        <p className={styles.description}>
+          A React, TypeScript, NestJS, and PostgreSQL implementation focused
+          on state consistency, optimistic updates, and concurrency.
+        </p>
+      </header>
+
+      {loadError ? <p role="alert">{loadError}</p> : null}
+
+      {!loadError && initialTasks === null ? (
+        <p aria-live="polite">Loading board…</p>
+      ) : null}
+
+      {initialTasks ? <BoardContent initialTasks={initialTasks} /> : null}
     </main>
   );
 }

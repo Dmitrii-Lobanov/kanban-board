@@ -6,13 +6,17 @@ import {
 
 import { AppModule } from './app.module';
 
-async function bootstrap() {
+async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),
   );
 
+  app.enableCors({
+    origin: 'http://localhost:5173',
+  });
+
   await app.listen(3000, '0.0.0.0');
 }
 
-bootstrap();
+void bootstrap();
