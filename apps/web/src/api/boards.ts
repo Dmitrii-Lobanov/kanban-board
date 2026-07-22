@@ -1,5 +1,6 @@
-import { api } from './client';
+import { apiRequest } from "./client";
+import type { BoardDto } from "./boards.types";
 
-export function getBoards() {
-  return api('/boards');
+export function getBoards(): Promise<BoardDto[]> {
+  return apiRequest<BoardDto[]>("/boards");
 }

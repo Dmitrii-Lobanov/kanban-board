@@ -1,19 +1,39 @@
-const API_URL = 'http://localhost:3000';
+import { ApiError } from "./api-error";
 
-export async function api<T>(
+const apiUrl =
+  import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+
+if (!apiUrl) {
+  throw new Error("VITE_API_URL is not configured.");
+}
+
+export async function apiRequest<T>(
   path: string,
-  init?: RequestInit,
+  init?: RequestInit
 ): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
+  const response = await fetch(`${apiUrl}${path}`, {
     ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...init?.headers,
+    },
   });
 
+  const contentType = response.headers.get("content-type");
+  const isJson = contentType?.includes("application/json");
+
+  const payload: unknown = isJson
+    ? await response.json()
+    : await response.text();
+
   if (!response.ok) {
-    throw new Error(await response.text());
+    const message =
+      typeof payload === "object" && payload !== null && "message" in payload
+        ? String(payload.message)
+        : `Request failed with status ${response.status}.`;
+
+    throw new ApiError(message, response.status, payload);
   }
 
-  return response.json();
+  return payload as T;
 }

@@ -38,7 +38,7 @@ export function filterTasks(tasks: Task[], filters: TaskFilters): Task[] {
 export function groupTasksByStatus(tasks: Task[]): Record<TaskStatus, Task[]> {
   return tasks.reduce<Record<TaskStatus, Task[]>>(
     (groups, task) => {
-      groups[task.status].push(task);
+      groups[task.status]?.push(task);
 
       return groups;
     },

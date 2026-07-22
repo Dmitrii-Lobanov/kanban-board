@@ -1,11 +1,11 @@
-import { type DragEvent, useEffect, useMemo, useState } from "react";
-import { getInitialTasks } from "../../api/boards";
+import { type DragEvent, useMemo, useState } from "react";
 import type { Task, TaskStatus } from "../../domain/task";
 import {
   filterTasks,
   getAssignees,
   groupTasksByStatus,
 } from "../../domain/taskUtils";
+import { useBoards } from "../../features/boards/hooks/useBoards";
 import { useTaskStatusMutation } from "../../hooks/useTaskStatusMutation";
 import { KanbanBoardColumn } from "../KanbanBoardColumn";
 import { TaskFilters } from "../TaskFilters";
@@ -113,32 +113,45 @@ function BoardContent({ initialTasks }: BoardContentProps) {
 }
 
 export function KanbanBoard() {
-  const [initialTasks, setInitialTasks] = useState<Task[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const boardsQuery = useBoards();
 
-  useEffect(() => {
-    const controller = new AbortController();
+  if (boardsQuery.isPending) {
+    return <div>Loading board…</div>;
+  }
 
-    async function loadBoard(): Promise<void> {
-      try {
-        const tasks = await getInitialTasks();
+  if (boardsQuery.isError) {
+    return <div>Failed to load the board.</div>;
+  }
 
-        if (!controller.signal.aborted) {
-          setInitialTasks(tasks);
-        }
-      } catch {
-        if (!controller.signal.aborted) {
-          setLoadError("Unable to load the board. Please try again.");
-        }
-      }
-    }
+  const board = boardsQuery.data[0];
 
-    void loadBoard();
+  if (!board) {
+    return <div>No boards found.</div>;
+  }
 
-    return () => {
-      controller.abort();
-    };
-  }, []);
+  function mapColumnTitleToStatus(title: string): TaskStatus {
+  switch (title.toLowerCase()) {
+    case "backlog":
+    case "todo":
+      return "todo";
+
+    case "in progress":
+      return "in-progress";
+
+    case "done":
+      return "done";
+
+    default:
+      throw new Error(`Unsupported column title: ${title}`);
+  }
+}
+
+const initialTasks: Task[] = board.columns.flatMap(column =>
+  column.tasks.map(task => ({
+    ...task,
+    status: mapColumnTitleToStatus(column.title),
+  }))
+);
 
   return (
     <main className={styles.page}>
@@ -153,13 +166,7 @@ export function KanbanBoard() {
         </p>
       </header>
 
-      {loadError ? <p role="alert">{loadError}</p> : null}
-
-      {!loadError && initialTasks === null ? (
-        <p aria-live="polite">Loading board…</p>
-      ) : null}
-
-      {initialTasks ? <BoardContent initialTasks={initialTasks} /> : null}
+      <BoardContent initialTasks={initialTasks} />
     </main>
   );
 }
