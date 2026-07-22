@@ -1,9 +1,4 @@
-import {
-  type DragEvent,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type DragEvent, useEffect, useMemo, useState } from "react";
 import { getInitialTasks } from "../../api/boards";
 import type { Task, TaskStatus } from "../../domain/task";
 import {
@@ -57,18 +52,15 @@ function BoardContent({ initialTasks }: BoardContentProps) {
         searchQuery,
         assignee: assigneeFilter,
       }),
-    [tasks, searchQuery, assigneeFilter],
+    [tasks, searchQuery, assigneeFilter]
   );
 
   const tasksByStatus = useMemo(
     () => groupTasksByStatus(visibleTasks),
-    [visibleTasks],
+    [visibleTasks]
   );
 
-  const handleDragStart = (
-    event: DragEvent<HTMLElement>,
-    taskId: string,
-  ) => {
+  const handleDragStart = (event: DragEvent<HTMLElement>, taskId: string) => {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData(TASK_DRAG_DATA_TYPE, taskId);
     event.dataTransfer.setData("text/plain", taskId);
@@ -76,7 +68,7 @@ function BoardContent({ initialTasks }: BoardContentProps) {
 
   const handleDropTask = (
     event: DragEvent<HTMLElement>,
-    destinationStatus: TaskStatus,
+    destinationStatus: TaskStatus
   ) => {
     event.preventDefault();
 
@@ -156,8 +148,8 @@ export function KanbanBoard() {
         <h1 className={styles.heading}>Reliable Kanban Board</h1>
 
         <p className={styles.description}>
-          A React, TypeScript, NestJS, and PostgreSQL implementation focused
-          on state consistency, optimistic updates, and concurrency.
+          A React, TypeScript, NestJS, and PostgreSQL implementation focused on
+          state consistency, optimistic updates, and concurrency.
         </p>
       </header>
 
