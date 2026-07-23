@@ -104,3 +104,9 @@ model Task {
   @@unique([columnId, position])
   @@index([columnId])
 }
+
+enum ColumnKey {
+  TODO
+  IN_PROGRESS
+  DONE
+}
