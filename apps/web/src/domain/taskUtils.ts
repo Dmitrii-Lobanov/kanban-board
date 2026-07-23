@@ -5,11 +5,11 @@ export interface TaskFilters {
   assignee: string;
 }
 
-export function replaceTaskStatus(
-  tasks: Task[],
+export function replaceTaskStatus<T extends Task>(
+  tasks: T[],
   taskId: string,
   status: TaskStatus
-): Task[] {
+): T[] {
   return tasks.map(task =>
     task.id === taskId
       ? {

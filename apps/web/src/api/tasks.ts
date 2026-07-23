@@ -1,21 +1,15 @@
-import type { TaskStatus } from "../domain/task";
+import type { MoveTaskRequest, TaskResponse } from "@kanban-board/contracts";
+import { parseTaskResponse } from "./boards";
+import { apiRequest } from "./client";
 
-const wait = (duration: number): Promise<void> =>
-  new Promise(resolve => {
-    window.setTimeout(resolve, duration);
+export async function moveTask(
+  taskId: string,
+  request: MoveTaskRequest
+): Promise<TaskResponse> {
+  const response = await apiRequest(`/tasks/${taskId}/position`, {
+    method: "PATCH",
+    body: JSON.stringify(request),
   });
 
-export async function updateTaskStatus(
-  taskId: string,
-  status: TaskStatus
-): Promise<void> {
-  await wait(800 + Math.random() * 700);
-
-  // These values would be sent in a real HTTP request.
-  void taskId;
-  void status;
-
-  if (Math.random() < 0.25) {
-    throw new Error("Unable to update the task status.");
-  }
+  return parseTaskResponse(response);
 }

@@ -1,6 +1,7 @@
 import { IsInt, IsString, Min } from 'class-validator';
+import type { MoveTaskRequest } from '@kanban-board/contracts';
 
-export class MoveTaskDto {
+export class MoveTaskDto implements MoveTaskRequest {
   @IsString()
   columnId!: string;
 

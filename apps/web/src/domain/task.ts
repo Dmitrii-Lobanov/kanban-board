@@ -10,3 +10,9 @@ export interface Task {
   assignee: string;
   status: TaskStatus;
 }
+
+export interface PersistedTask extends Task {
+  columnId: string;
+  position: number;
+  version: number;
+}

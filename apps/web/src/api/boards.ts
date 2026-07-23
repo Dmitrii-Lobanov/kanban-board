@@ -47,7 +47,7 @@ function parsePriority(value: unknown): TaskDto["priority"] {
   }
 }
 
-function parseTask(value: unknown): TaskDto {
+export function parseTaskResponse(value: unknown): TaskDto {
   if (!isRecord(value)) {
     throw new Error("Invalid boards response: task must be an object.");
   }
@@ -86,7 +86,7 @@ function parseColumn(value: unknown): ColumnDto {
     boardId: readString(value, "boardId"),
     createdAt: readString(value, "createdAt"),
     updatedAt: readString(value, "updatedAt"),
-    tasks: value.tasks.map(parseTask),
+    tasks: value.tasks.map(parseTaskResponse),
   };
 }
 

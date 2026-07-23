@@ -6,6 +6,7 @@ import {
 import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { mapTaskResponse } from '../boards/board-response.mapper';
 import { MoveTaskDto } from './dto/move-task.dto';
 
 type TransactionClient = Prisma.TransactionClient;
@@ -55,7 +56,7 @@ export class TasksService {
       throw new NotFoundException('Destination column not found.');
     }
 
-    return this.prisma.$transaction(async (transaction) => {
+    const movedTask = await this.prisma.$transaction(async (transaction) => {
       const destinationTaskCount = await transaction.task.count({
         where: {
           columnId: dto.columnId,
@@ -66,6 +67,15 @@ export class TasksService {
       });
 
       const destinationPosition = Math.min(dto.position, destinationTaskCount);
+
+      await transaction.task.update({
+        where: {
+          id: task.id,
+        },
+        data: {
+          position: -task.position - 1,
+        },
+      });
 
       if (task.columnId === dto.columnId) {
         await this.moveWithinColumn(transaction, task, destinationPosition);
@@ -91,6 +101,8 @@ export class TasksService {
         },
       });
     });
+
+    return mapTaskResponse(movedTask);
   }
 
   private async moveWithinColumn(
@@ -103,7 +115,7 @@ export class TasksService {
     }
 
     if (destinationPosition < task.position) {
-      await transaction.task.updateMany({
+      const tasksToShift = await transaction.task.findMany({
         where: {
           columnId: task.columnId,
           id: {
@@ -114,17 +126,30 @@ export class TasksService {
             lt: task.position,
           },
         },
-        data: {
-          position: {
-            increment: 1,
-          },
+        select: {
+          id: true,
+          position: true,
+        },
+        orderBy: {
+          position: 'desc',
         },
       });
+
+      for (const taskToShift of tasksToShift) {
+        await transaction.task.update({
+          where: {
+            id: taskToShift.id,
+          },
+          data: {
+            position: taskToShift.position + 1,
+          },
+        });
+      }
 
       return;
     }
 
-    await transaction.task.updateMany({
+    const tasksToShift = await transaction.task.findMany({
       where: {
         columnId: task.columnId,
         id: {
@@ -135,12 +160,25 @@ export class TasksService {
           lte: destinationPosition,
         },
       },
-      data: {
-        position: {
-          decrement: 1,
-        },
+      select: {
+        id: true,
+        position: true,
+      },
+      orderBy: {
+        position: 'asc',
       },
     });
+
+    for (const taskToShift of tasksToShift) {
+      await transaction.task.update({
+        where: {
+          id: taskToShift.id,
+        },
+        data: {
+          position: taskToShift.position - 1,
+        },
+      });
+    }
   }
 
   private async moveAcrossColumns(
@@ -149,32 +187,58 @@ export class TasksService {
     destinationColumnId: string,
     destinationPosition: number,
   ): Promise<void> {
-    await transaction.task.updateMany({
+    const sourceTasksToShift = await transaction.task.findMany({
       where: {
         columnId: task.columnId,
         position: {
           gt: task.position,
         },
       },
-      data: {
-        position: {
-          decrement: 1,
-        },
+      select: {
+        id: true,
+        position: true,
+      },
+      orderBy: {
+        position: 'asc',
       },
     });
 
-    await transaction.task.updateMany({
+    for (const taskToShift of sourceTasksToShift) {
+      await transaction.task.update({
+        where: {
+          id: taskToShift.id,
+        },
+        data: {
+          position: taskToShift.position - 1,
+        },
+      });
+    }
+
+    const destinationTasksToShift = await transaction.task.findMany({
       where: {
         columnId: destinationColumnId,
         position: {
           gte: destinationPosition,
         },
       },
-      data: {
-        position: {
-          increment: 1,
-        },
+      select: {
+        id: true,
+        position: true,
+      },
+      orderBy: {
+        position: 'desc',
       },
     });
+
+    for (const taskToShift of destinationTasksToShift) {
+      await transaction.task.update({
+        where: {
+          id: taskToShift.id,
+        },
+        data: {
+          position: taskToShift.position + 1,
+        },
+      });
+    }
   }
 }

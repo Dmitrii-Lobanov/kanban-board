@@ -1,11 +1,13 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { updateTaskStatus } from "../../api/tasks";
+import type { TaskResponse } from "@kanban-board/contracts";
+import { moveTask } from "../../api/tasks";
 import { KanbanBoard } from "./KanbanBoard";
 
 vi.mock("../../api/tasks", () => ({
-  updateTaskStatus: vi.fn(),
+  moveTask: vi.fn(),
 }));
 
 vi.mock("../../features/boards/hooks/useBoards", () => ({
@@ -81,7 +83,7 @@ vi.mock("../../features/boards/hooks/useBoards", () => ({
   }),
 }));
 
-const mockedUpdateTaskStatus = vi.mocked(updateTaskStatus);
+const mockedMoveTask = vi.mocked(moveTask);
 const optimisticTaskTitle = "Model optimistic task state";
 const draggableTaskTitle = "Build native drag-and-drop";
 
@@ -121,19 +123,49 @@ function getTaskCard(title: string) {
     .closest("article");
 }
 
+function createMovedTaskResponse(
+  id: string,
+  columnId: string,
+  position: number
+): TaskResponse {
+  return {
+    id,
+    title: id === "task-1" ? optimisticTaskTitle : draggableTaskTitle,
+    description: null,
+    priority: "MEDIUM",
+    position,
+    version: 2,
+    columnId,
+    createdAt: "2026-07-23T12:00:00.000Z",
+    updatedAt: "2026-07-23T12:01:00.000Z",
+  };
+}
+
+function renderBoard() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <KanbanBoard />
+    </QueryClientProvider>
+  );
+}
+
 describe("KanbanBoard", () => {
   beforeEach(() => {
-    mockedUpdateTaskStatus.mockReset();
+    mockedMoveTask.mockReset();
   });
 
   it("moves a task optimistically before the API request completes", async () => {
-    const request = createDeferredPromise<void>();
+    const request = createDeferredPromise<TaskResponse>();
 
-    mockedUpdateTaskStatus.mockReturnValueOnce(request.promise);
+    mockedMoveTask.mockReturnValueOnce(request.promise);
 
     const user = userEvent.setup();
 
-    render(<KanbanBoard />);
+    renderBoard();
 
     const taskCard = getTaskCard(optimisticTaskTitle);
 
@@ -151,23 +183,26 @@ describe("KanbanBoard", () => {
       })
     ).toBeInTheDocument();
 
-    expect(mockedUpdateTaskStatus).toHaveBeenCalledWith(
-      "task-1",
-      "in-progress"
-    );
+    expect(mockedMoveTask).toHaveBeenCalledWith("task-1", {
+      columnId: "column-progress",
+      position: 1,
+      expectedVersion: 1,
+    });
 
     await act(async () => {
-      request.resolve();
+      request.resolve(createMovedTaskResponse("task-1", "column-progress", 1));
       await request.promise;
     });
   });
 
   it("keeps the task in its new column after persistence succeeds", async () => {
-    mockedUpdateTaskStatus.mockResolvedValueOnce();
+    mockedMoveTask.mockResolvedValueOnce(
+      createMovedTaskResponse("task-1", "column-progress", 1)
+    );
 
     const user = userEvent.setup();
 
-    render(<KanbanBoard />);
+    renderBoard();
 
     const taskCard = getTaskCard(optimisticTaskTitle);
 
@@ -189,13 +224,13 @@ describe("KanbanBoard", () => {
   });
 
   it("rolls a task back and displays an inline error when persistence fails", async () => {
-    const request = createDeferredPromise<void>();
+    const request = createDeferredPromise<TaskResponse>();
 
-    mockedUpdateTaskStatus.mockReturnValueOnce(request.promise);
+    mockedMoveTask.mockReturnValueOnce(request.promise);
 
     const user = userEvent.setup();
 
-    render(<KanbanBoard />);
+    renderBoard();
 
     const taskCard = getTaskCard(optimisticTaskTitle);
 
@@ -237,13 +272,13 @@ describe("KanbanBoard", () => {
   });
 
   it("disables only the task whose request is pending", async () => {
-    const request = createDeferredPromise<void>();
+    const request = createDeferredPromise<TaskResponse>();
 
-    mockedUpdateTaskStatus.mockReturnValueOnce(request.promise);
+    mockedMoveTask.mockReturnValueOnce(request.promise);
 
     const user = userEvent.setup();
 
-    render(<KanbanBoard />);
+    renderBoard();
 
     const firstTask = getTaskCard(optimisticTaskTitle);
 
@@ -274,19 +309,19 @@ describe("KanbanBoard", () => {
     ).toBeEnabled();
 
     await act(async () => {
-      request.resolve();
+      request.resolve(createMovedTaskResponse("task-1", "column-progress", 1));
       await request.promise;
     });
   });
 
   it("prevents a second mutation for the same pending task", async () => {
-    const request = createDeferredPromise<void>();
+    const request = createDeferredPromise<TaskResponse>();
 
-    mockedUpdateTaskStatus.mockReturnValueOnce(request.promise);
+    mockedMoveTask.mockReturnValueOnce(request.promise);
 
     const user = userEvent.setup();
 
-    render(<KanbanBoard />);
+    renderBoard();
 
     const taskCard = getTaskCard(optimisticTaskTitle);
 
@@ -308,25 +343,25 @@ describe("KanbanBoard", () => {
       })
     );
 
-    expect(mockedUpdateTaskStatus).toHaveBeenCalledTimes(1);
+    expect(mockedMoveTask).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      request.resolve();
+      request.resolve(createMovedTaskResponse("task-1", "column-progress", 1));
       await request.promise;
     });
   });
 
   it("allows two different tasks to update concurrently", async () => {
-    const firstRequest = createDeferredPromise<void>();
-    const secondRequest = createDeferredPromise<void>();
+    const firstRequest = createDeferredPromise<TaskResponse>();
+    const secondRequest = createDeferredPromise<TaskResponse>();
 
-    mockedUpdateTaskStatus
+    mockedMoveTask
       .mockReturnValueOnce(firstRequest.promise)
       .mockReturnValueOnce(secondRequest.promise);
 
     const user = userEvent.setup();
 
-    render(<KanbanBoard />);
+    renderBoard();
 
     const firstTask = getTaskCard(optimisticTaskTitle);
     const secondTask = getTaskCard(draggableTaskTitle);
@@ -346,7 +381,7 @@ describe("KanbanBoard", () => {
       })
     );
 
-    expect(mockedUpdateTaskStatus).toHaveBeenCalledTimes(2);
+    expect(mockedMoveTask).toHaveBeenCalledTimes(2);
 
     expect(
       within(getColumn("In Progress")).getByRole("heading", {
@@ -361,8 +396,12 @@ describe("KanbanBoard", () => {
     ).toBeInTheDocument();
 
     await act(async () => {
-      firstRequest.resolve();
-      secondRequest.resolve();
+      firstRequest.resolve(
+        createMovedTaskResponse("task-1", "column-progress", 1)
+      );
+      secondRequest.resolve(
+        createMovedTaskResponse("task-4", "column-done", 0)
+      );
 
       await Promise.all([firstRequest.promise, secondRequest.promise]);
     });

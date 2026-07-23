@@ -1,7 +1,16 @@
-import { useOptimistic, useRef, useState, useTransition } from "react";
-import { updateTaskStatus } from "../api/tasks";
-import type { Task, TaskStatus } from "../domain/task";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
+import { ApiError } from "../api/api-error";
+import { moveTask } from "../api/tasks";
+import type { PersistedTask, TaskStatus } from "../domain/task";
 import { replaceTaskStatus } from "../domain/taskUtils";
+import { boardsQueryKey } from "../features/boards/hooks/useBoards";
 
 interface OptimisticTaskUpdate {
   taskId: string;
@@ -11,16 +20,19 @@ interface OptimisticTaskUpdate {
 type TaskErrors = Record<string, string | undefined>;
 
 interface UseTaskStatusMutationResult {
-  tasks: Task[];
+  tasks: PersistedTask[];
   pendingTaskIds: ReadonlySet<string>;
   taskErrors: TaskErrors;
   changeTaskStatus: (taskId: string, nextStatus: TaskStatus) => void;
 }
 
 export function useTaskStatusMutation(
-  initialTasks: Task[]
+  initialTasks: PersistedTask[],
+  columnIdsByStatus: Record<TaskStatus, string>
 ): UseTaskStatusMutationResult {
-  const [confirmedTasks, setConfirmedTasks] = useState<Task[]>(initialTasks);
+  const queryClient = useQueryClient();
+  const [confirmedTasks, setConfirmedTasks] =
+    useState<PersistedTask[]>(initialTasks);
 
   const [pendingTaskIds, setPendingTaskIds] = useState(() => new Set<string>());
 
@@ -29,9 +41,13 @@ export function useTaskStatusMutation(
   const pendingTaskIdsRef = useRef(new Set<string>());
   const [, startTransition] = useTransition();
 
+  useEffect(() => {
+    setConfirmedTasks(initialTasks);
+  }, [initialTasks]);
+
   const [optimisticTasks, updateOptimisticTask] = useOptimistic(
     confirmedTasks,
-    (currentTasks: Task[], update: OptimisticTaskUpdate): Task[] =>
+    (currentTasks: PersistedTask[], update: OptimisticTaskUpdate) =>
       replaceTaskStatus(currentTasks, update.taskId, update.status)
   );
 
@@ -70,6 +86,12 @@ export function useTaskStatusMutation(
 
     markTaskPending(taskId);
 
+    const destinationColumnId = columnIdsByStatus[nextStatus];
+    const destinationPosition = optimisticTasks.filter(
+      currentTask =>
+        currentTask.status === nextStatus && currentTask.id !== taskId
+    ).length;
+
     setTaskErrors(currentErrors => ({
       ...currentErrors,
       [taskId]: undefined,
@@ -82,16 +104,37 @@ export function useTaskStatusMutation(
       });
 
       try {
-        await updateTaskStatus(taskId, nextStatus);
+        const movedTask = await moveTask(taskId, {
+          columnId: destinationColumnId,
+          position: destinationPosition,
+          expectedVersion: task.version,
+        });
 
         setConfirmedTasks(currentTasks =>
-          replaceTaskStatus(currentTasks, taskId, nextStatus)
+          currentTasks.map(currentTask =>
+            currentTask.id === taskId
+              ? {
+                  ...currentTask,
+                  status: nextStatus,
+                  columnId: movedTask.columnId,
+                  position: movedTask.position,
+                  version: movedTask.version,
+                }
+              : currentTask
+          )
         );
-      } catch {
+      } catch (error) {
         setTaskErrors(currentErrors => ({
           ...currentErrors,
-          [taskId]: "Unable to update the task status. Please try again.",
+          [taskId]:
+            error instanceof ApiError && error.status === 409
+              ? "This task changed elsewhere. The board has been refreshed."
+              : "Unable to update the task status. Please try again.",
         }));
+
+        if (error instanceof ApiError && error.status === 409) {
+          await queryClient.invalidateQueries({ queryKey: boardsQueryKey });
+        }
       } finally {
         clearTaskPending(taskId);
       }

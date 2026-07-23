@@ -14,6 +14,12 @@ export type TaskResponse = {
   updatedAt: string;
 };
 
+export type MoveTaskRequest = {
+  columnId: string;
+  position: number;
+  expectedVersion: number;
+};
+
 export type ColumnResponse = {
   id: string;
   title: string;

@@ -1,4 +1,8 @@
-import type { BoardResponse, ColumnKey } from '@kanban-board/contracts';
+import type {
+  BoardResponse,
+  ColumnKey,
+  TaskResponse,
+} from '@kanban-board/contracts';
 import { ColumnKey as PrismaColumnKey, type Prisma } from '@prisma/client';
 
 export type BoardWithColumnsAndTasks = Prisma.BoardGetPayload<{
@@ -16,6 +20,22 @@ const apiColumnKeys: Record<PrismaColumnKey, ColumnKey> = {
   [PrismaColumnKey.IN_PROGRESS]: 'in-progress',
   [PrismaColumnKey.DONE]: 'done',
 };
+
+type TaskRecord = Prisma.TaskGetPayload<object>;
+
+export function mapTaskResponse(task: TaskRecord): TaskResponse {
+  return {
+    id: task.id,
+    title: task.title,
+    description: task.description,
+    priority: task.priority,
+    position: task.position,
+    version: task.version,
+    columnId: task.columnId,
+    createdAt: task.createdAt.toISOString(),
+    updatedAt: task.updatedAt.toISOString(),
+  };
+}
 
 export function mapBoardResponse(
   board: BoardWithColumnsAndTasks,
@@ -35,17 +55,7 @@ export function mapBoardResponse(
       boardId: column.boardId,
       createdAt: column.createdAt.toISOString(),
       updatedAt: column.updatedAt.toISOString(),
-      tasks: column.tasks.map((task) => ({
-        id: task.id,
-        title: task.title,
-        description: task.description,
-        priority: task.priority,
-        position: task.position,
-        version: task.version,
-        columnId: task.columnId,
-        createdAt: task.createdAt.toISOString(),
-        updatedAt: task.updatedAt.toISOString(),
-      })),
+      tasks: column.tasks.map(mapTaskResponse),
     })),
   };
 }

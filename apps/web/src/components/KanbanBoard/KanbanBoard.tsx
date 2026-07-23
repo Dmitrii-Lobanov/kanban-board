@@ -1,5 +1,5 @@
 import { type DragEvent, useMemo, useState } from "react";
-import type { Task, TaskStatus } from "../../domain/task";
+import type { PersistedTask, TaskStatus } from "../../domain/task";
 import {
   filterTasks,
   getAssignees,
@@ -34,12 +34,13 @@ const columns: ColumnConfiguration[] = [
 ];
 
 interface BoardContentProps {
-  initialTasks: Task[];
+  initialTasks: PersistedTask[];
+  columnIdsByStatus: Record<TaskStatus, string>;
 }
 
-function BoardContent({ initialTasks }: BoardContentProps) {
+function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
   const { tasks, pendingTaskIds, taskErrors, changeTaskStatus } =
-    useTaskStatusMutation(initialTasks);
+    useTaskStatusMutation(initialTasks, columnIdsByStatus);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
@@ -129,14 +130,33 @@ export function KanbanBoard() {
     return <div>No boards found.</div>;
   }
 
-  const initialTasks: Task[] = board.columns.flatMap(column =>
+  const initialTasks: PersistedTask[] = board.columns.flatMap(column =>
     column.tasks.map(task => ({
       id: task.id,
       title: task.title,
       assignee: "Unassigned",
       status: column.key,
+      columnId: task.columnId,
+      position: task.position,
+      version: task.version,
     }))
   );
+
+  const todoColumn = board.columns.find(column => column.key === "todo");
+  const inProgressColumn = board.columns.find(
+    column => column.key === "in-progress"
+  );
+  const doneColumn = board.columns.find(column => column.key === "done");
+
+  if (!todoColumn || !inProgressColumn || !doneColumn) {
+    return <div>Board columns are incomplete.</div>;
+  }
+
+  const columnIdsByStatus: Record<TaskStatus, string> = {
+    todo: todoColumn.id,
+    "in-progress": inProgressColumn.id,
+    done: doneColumn.id,
+  };
 
   return (
     <main className={styles.page}>
@@ -151,7 +171,10 @@ export function KanbanBoard() {
         </p>
       </header>
 
-      <BoardContent initialTasks={initialTasks} />
+      <BoardContent
+        initialTasks={initialTasks}
+        columnIdsByStatus={columnIdsByStatus}
+      />
     </main>
   );
 }
