@@ -1,16 +1,15 @@
 import { ApiError } from "./api-error";
 
-const apiUrl =
-  import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 if (!apiUrl) {
   throw new Error("VITE_API_URL is not configured.");
 }
 
-export async function apiRequest<T>(
+export async function apiRequest(
   path: string,
   init?: RequestInit
-): Promise<T> {
+): Promise<unknown> {
   const response = await fetch(`${apiUrl}${path}`, {
     ...init,
     headers: {
@@ -35,5 +34,5 @@ export async function apiRequest<T>(
     throw new ApiError(message, response.status, payload);
   }
 
-  return payload as T;
+  return payload;
 }

@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { mapBoardResponse } from './board-response.mapper';
 
 @Injectable()
 export class BoardsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll() {
-    return this.prisma.board.findMany({
+    const boards = await this.prisma.board.findMany({
       orderBy: {
         position: 'asc',
       },
@@ -25,5 +26,7 @@ export class BoardsService {
         },
       },
     });
+
+    return boards.map(mapBoardResponse);
   }
 }

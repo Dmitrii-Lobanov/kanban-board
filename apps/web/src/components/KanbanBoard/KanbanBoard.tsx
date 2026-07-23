@@ -129,29 +129,14 @@ export function KanbanBoard() {
     return <div>No boards found.</div>;
   }
 
-  function mapColumnTitleToStatus(title: string): TaskStatus {
-  switch (title.toLowerCase()) {
-    case "backlog":
-    case "todo":
-      return "todo";
-
-    case "in progress":
-      return "in-progress";
-
-    case "done":
-      return "done";
-
-    default:
-      throw new Error(`Unsupported column title: ${title}`);
-  }
-}
-
-const initialTasks: Task[] = board.columns.flatMap(column =>
-  column.tasks.map(task => ({
-    ...task,
-    status: mapColumnTitleToStatus(column.title),
-  }))
-);
+  const initialTasks: Task[] = board.columns.flatMap(column =>
+    column.tasks.map(task => ({
+      id: task.id,
+      title: task.title,
+      assignee: "Unassigned",
+      status: column.key,
+    }))
+  );
 
   return (
     <main className={styles.page}>

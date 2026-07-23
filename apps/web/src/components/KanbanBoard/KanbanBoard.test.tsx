@@ -8,6 +8,79 @@ vi.mock("../../api/tasks", () => ({
   updateTaskStatus: vi.fn(),
 }));
 
+vi.mock("../../features/boards/hooks/useBoards", () => ({
+  useBoards: () => ({
+    isPending: false,
+    isError: false,
+    data: [
+      {
+        id: "board-1",
+        title: "Board",
+        position: 0,
+        workspaceId: "workspace-1",
+        createdAt: "2026-07-23T12:00:00.000Z",
+        updatedAt: "2026-07-23T12:00:00.000Z",
+        columns: [
+          {
+            id: "column-todo",
+            title: "A title that does not imply status",
+            key: "todo",
+            position: 0,
+            boardId: "board-1",
+            createdAt: "2026-07-23T12:00:00.000Z",
+            updatedAt: "2026-07-23T12:00:00.000Z",
+            tasks: [
+              {
+                id: "task-1",
+                title: "Model optimistic task state",
+                description: null,
+                priority: "MEDIUM",
+                position: 0,
+                version: 1,
+                columnId: "column-todo",
+                createdAt: "2026-07-23T12:00:00.000Z",
+                updatedAt: "2026-07-23T12:00:00.000Z",
+              },
+            ],
+          },
+          {
+            id: "column-progress",
+            title: "Another editable title",
+            key: "in-progress",
+            position: 1,
+            boardId: "board-1",
+            createdAt: "2026-07-23T12:00:00.000Z",
+            updatedAt: "2026-07-23T12:00:00.000Z",
+            tasks: [
+              {
+                id: "task-4",
+                title: "Build native drag-and-drop",
+                description: null,
+                priority: "HIGH",
+                position: 0,
+                version: 1,
+                columnId: "column-progress",
+                createdAt: "2026-07-23T12:00:00.000Z",
+                updatedAt: "2026-07-23T12:00:00.000Z",
+              },
+            ],
+          },
+          {
+            id: "column-done",
+            title: "Completed work",
+            key: "done",
+            position: 2,
+            boardId: "board-1",
+            createdAt: "2026-07-23T12:00:00.000Z",
+            updatedAt: "2026-07-23T12:00:00.000Z",
+            tasks: [],
+          },
+        ],
+      },
+    ],
+  }),
+}));
+
 const mockedUpdateTaskStatus = vi.mocked(updateTaskStatus);
 const optimisticTaskTitle = "Model optimistic task state";
 const draggableTaskTitle = "Build native drag-and-drop";

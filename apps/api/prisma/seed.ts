@@ -1,4 +1,9 @@
-import { PrismaClient, WorkspaceRole, TaskPriority } from '@prisma/client';
+import {
+  ColumnKey,
+  PrismaClient,
+  TaskPriority,
+  WorkspaceRole,
+} from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -43,6 +48,7 @@ async function main() {
   const backlog = await prisma.column.create({
     data: {
       title: 'Backlog',
+      key: ColumnKey.TODO,
       position: 0,
       boardId: board.id,
     },
@@ -51,6 +57,7 @@ async function main() {
   const progress = await prisma.column.create({
     data: {
       title: 'In Progress',
+      key: ColumnKey.IN_PROGRESS,
       position: 1,
       boardId: board.id,
     },
@@ -59,6 +66,7 @@ async function main() {
   const done = await prisma.column.create({
     data: {
       title: 'Done',
+      key: ColumnKey.DONE,
       position: 2,
       boardId: board.id,
     },
@@ -97,7 +105,10 @@ async function main() {
 }
 
 main()
-  .catch(console.error)
+  .catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+  })
   .finally(async () => {
     await prisma.$disconnect();
   });

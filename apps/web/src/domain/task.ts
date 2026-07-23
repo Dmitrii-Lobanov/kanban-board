@@ -1,6 +1,8 @@
-export const TASK_STATUSES = ["todo", "in-progress", "done"] as const;
+import { COLUMN_KEYS, type ColumnKey } from "@kanban-board/contracts";
 
-export type TaskStatus = (typeof TASK_STATUSES)[number];
+export const TASK_STATUSES = COLUMN_KEYS;
+
+export type TaskStatus = ColumnKey;
 
 export interface Task {
   id: string;

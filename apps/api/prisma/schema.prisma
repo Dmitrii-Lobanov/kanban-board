@@ -19,6 +19,12 @@ enum TaskPriority {
   HIGH
 }
 
+enum ColumnKey {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
 model User {
   id           String            @id @default(cuid())
   email        String            @unique
@@ -76,15 +82,17 @@ model Board {
 }
 
 model Column {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   title     String
+  key       ColumnKey
   position  Int
   boardId   String
-  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  board     Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
   tasks     Task[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
+  @@unique([boardId, key])
   @@unique([boardId, position])
   @@index([boardId])
 }
@@ -103,10 +111,4 @@ model Task {
 
   @@unique([columnId, position])
   @@index([columnId])
-}
-
-enum ColumnKey {
-  TODO
-  IN_PROGRESS
-  DONE
 }
