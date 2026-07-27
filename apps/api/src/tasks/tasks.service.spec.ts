@@ -96,6 +96,25 @@ describe('TasksService', () => {
     ).rejects.toThrow(new NotFoundException('Destination column not found.'));
   });
 
+  it('rejects a version changed after the initial read', async () => {
+    jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(createTask());
+    jest.spyOn(prisma.column, 'findUnique').mockResolvedValue(createColumn());
+    jest.spyOn(prisma.task, 'updateMany').mockResolvedValue({ count: 0 });
+    jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementation(async (callback) => callback(prisma));
+
+    await expect(
+      service.moveTask('task-1', {
+        columnId: 'column-destination',
+        position: 1,
+        expectedVersion: 3,
+      }),
+    ).rejects.toThrow(
+      new ConflictException('Task has been modified by another client.'),
+    );
+  });
+
   it('moves across columns in collision-safe order', async () => {
     const movedTask = createTask({
       columnId: 'column-destination',
@@ -108,6 +127,9 @@ describe('TasksService', () => {
 
     jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(createTask());
     jest.spyOn(prisma.column, 'findUnique').mockResolvedValue(createColumn());
+    const updateMany = jest
+      .spyOn(prisma.task, 'updateMany')
+      .mockResolvedValue({ count: 1 });
     jest.spyOn(prisma.task, 'count').mockResolvedValue(2);
     jest
       .spyOn(prisma.task, 'findMany')
@@ -132,7 +154,6 @@ describe('TasksService', () => {
     });
 
     expect(update.mock.calls.map(([argument]) => argument)).toEqual([
-      { where: { id: 'task-1' }, data: { position: -2 } },
       { where: { id: 'source-2' }, data: { position: 1 } },
       { where: { id: 'source-3' }, data: { position: 2 } },
       { where: { id: 'destination-1' }, data: { position: 2 } },
@@ -141,10 +162,13 @@ describe('TasksService', () => {
         data: {
           columnId: 'column-destination',
           position: 1,
-          version: { increment: 1 },
         },
       },
     ]);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'task-1', version: 3 },
+      data: { position: -2, version: { increment: 1 } },
+    });
     expect(response).toMatchObject({
       id: 'task-1',
       columnId: 'column-destination',
@@ -168,6 +192,9 @@ describe('TasksService', () => {
         createColumn({ id: 'column-source', key: ColumnKey.TODO }),
       );
     jest.spyOn(prisma.task, 'count').mockResolvedValue(2);
+    const updateMany = jest
+      .spyOn(prisma.task, 'updateMany')
+      .mockResolvedValue({ count: 1 });
     jest
       .spyOn(prisma.task, 'findMany')
       .mockResolvedValue([
@@ -185,7 +212,6 @@ describe('TasksService', () => {
     });
 
     expect(update.mock.calls.map(([argument]) => argument)).toEqual([
-      { where: { id: 'task-1' }, data: { position: -3 } },
       { where: { id: 'task-at-1' }, data: { position: 2 } },
       { where: { id: 'task-at-0' }, data: { position: 1 } },
       {
@@ -193,9 +219,12 @@ describe('TasksService', () => {
         data: {
           columnId: 'column-source',
           position: 0,
-          version: { increment: 1 },
         },
       },
     ]);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'task-1', version: 3 },
+      data: { position: -3, version: { increment: 1 } },
+    });
   });
 });

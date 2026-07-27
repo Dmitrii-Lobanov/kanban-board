@@ -1,4 +1,5 @@
 /// <reference types="jest" />
+import { ConflictException } from '@nestjs/common';
 import { ColumnKey, TaskPriority } from '@prisma/client';
 
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -208,5 +209,96 @@ describe('TasksService integration', () => {
       ['First', 1],
       ['Second', 2],
     ]);
+  });
+
+  it('allows only one concurrent move with the same expected version', async () => {
+    const workspace = await prisma.workspace.create({
+      data: {
+        name: 'Concurrent move integration test',
+        boards: {
+          create: {
+            title: 'Board',
+            position: 0,
+            columns: {
+              create: [
+                {
+                  title: 'Todo',
+                  key: ColumnKey.TODO,
+                  position: 0,
+                  tasks: { create: { title: 'Contested task', position: 0 } },
+                },
+                {
+                  title: 'In Progress',
+                  key: ColumnKey.IN_PROGRESS,
+                  position: 1,
+                },
+                {
+                  title: 'Done',
+                  key: ColumnKey.DONE,
+                  position: 2,
+                },
+              ],
+            },
+          },
+        },
+      },
+      include: {
+        boards: {
+          include: {
+            columns: { include: { tasks: true } },
+          },
+        },
+      },
+    });
+    workspaceId = workspace.id;
+
+    const columns = workspace.boards[0]?.columns;
+    const sourceColumn = columns?.find(
+      (column) => column.key === ColumnKey.TODO,
+    );
+    const progressColumn = columns?.find(
+      (column) => column.key === ColumnKey.IN_PROGRESS,
+    );
+    const doneColumn = columns?.find((column) => column.key === ColumnKey.DONE);
+    const task = sourceColumn?.tasks[0];
+
+    if (!progressColumn || !doneColumn || !task) {
+      throw new Error('Integration fixture was not created correctly.');
+    }
+
+    const results = await Promise.allSettled([
+      service.moveTask(task.id, {
+        columnId: progressColumn.id,
+        position: 0,
+        expectedVersion: 1,
+      }),
+      service.moveTask(task.id, {
+        columnId: doneColumn.id,
+        position: 0,
+        expectedVersion: 1,
+      }),
+    ]);
+    const updatedTask = await prisma.task.findUniqueOrThrow({
+      where: { id: task.id },
+    });
+    const rejectedResult = results.find(
+      (result) => result.status === 'rejected',
+    );
+
+    if (!rejectedResult || rejectedResult.status !== 'rejected') {
+      throw new Error('Expected one concurrent move to be rejected.');
+    }
+
+    const rejectionReason: unknown = rejectedResult.reason;
+
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1);
+    expect(rejectionReason).toBeInstanceOf(ConflictException);
+    expect(updatedTask.version).toBe(2);
+    expect([progressColumn.id, doneColumn.id]).toContain(updatedTask.columnId);
   });
 });

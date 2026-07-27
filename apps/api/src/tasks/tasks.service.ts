@@ -57,6 +57,25 @@ export class TasksService {
     }
 
     const movedTask = await this.prisma.$transaction(async (transaction) => {
+      const versionClaim = await transaction.task.updateMany({
+        where: {
+          id: task.id,
+          version: dto.expectedVersion,
+        },
+        data: {
+          position: -task.position - 1,
+          version: {
+            increment: 1,
+          },
+        },
+      });
+
+      if (versionClaim.count !== 1) {
+        throw new ConflictException(
+          'Task has been modified by another client.',
+        );
+      }
+
       const destinationTaskCount = await transaction.task.count({
         where: {
           columnId: dto.columnId,
@@ -67,15 +86,6 @@ export class TasksService {
       });
 
       const destinationPosition = Math.min(dto.position, destinationTaskCount);
-
-      await transaction.task.update({
-        where: {
-          id: task.id,
-        },
-        data: {
-          position: -task.position - 1,
-        },
-      });
 
       if (task.columnId === dto.columnId) {
         await this.moveWithinColumn(transaction, task, destinationPosition);
@@ -95,9 +105,6 @@ export class TasksService {
         data: {
           columnId: dto.columnId,
           position: destinationPosition,
-          version: {
-            increment: 1,
-          },
         },
       });
     });
