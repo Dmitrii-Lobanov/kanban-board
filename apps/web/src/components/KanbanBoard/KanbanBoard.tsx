@@ -56,10 +56,15 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
     [tasks, searchQuery, assigneeFilter]
   );
 
-  const tasksByStatus = useMemo(
-    () => groupTasksByStatus(visibleTasks),
-    [visibleTasks]
-  );
+  const tasksByStatus = useMemo(() => {
+    const groups = groupTasksByStatus(visibleTasks);
+
+    for (const groupedTasks of Object.values(groups)) {
+      groupedTasks.sort((first, second) => first.position - second.position);
+    }
+
+    return groups;
+  }, [visibleTasks]);
 
   const handleDragStart = (event: DragEvent<HTMLElement>, taskId: string) => {
     event.dataTransfer.effectAllowed = "move";
@@ -69,7 +74,8 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
 
   const handleDropTask = (
     event: DragEvent<HTMLElement>,
-    destinationStatus: TaskStatus
+    destinationStatus: TaskStatus,
+    destinationPosition: number
   ) => {
     event.preventDefault();
 
@@ -81,7 +87,14 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
       return;
     }
 
-    changeTaskStatus(taskId, destinationStatus);
+    const sourceTask = tasks.find(task => task.id === taskId);
+    const adjustedPosition =
+      sourceTask?.status === destinationStatus &&
+      sourceTask.position < destinationPosition
+        ? destinationPosition - 1
+        : destinationPosition;
+
+    changeTaskStatus(taskId, destinationStatus, adjustedPosition);
   };
 
   return (
@@ -101,6 +114,9 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
             title={column.title}
             status={column.status}
             tasks={tasksByStatus[column.status]}
+            appendPosition={
+              tasks.filter(task => task.status === column.status).length
+            }
             pendingTaskIds={pendingTaskIds}
             taskErrors={taskErrors}
             onStatusChange={changeTaskStatus}

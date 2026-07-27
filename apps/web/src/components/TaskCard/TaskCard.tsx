@@ -8,6 +8,7 @@ interface TaskCardProps {
   error?: string;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
+  onDrop: (event: DragEvent<HTMLElement>) => void;
 }
 
 const statusOptions: Array<{
@@ -34,6 +35,7 @@ export function TaskCard({
   error,
   onStatusChange,
   onDragStart,
+  onDrop,
 }: TaskCardProps) {
   const generatedId = useId();
   const pendingMessageId = `${generatedId}-pending`;
@@ -59,6 +61,11 @@ export function TaskCard({
           onDragStart(event, task.id);
         }
       }}
+      onDragOver={event => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      }}
+      onDrop={onDrop}
     >
       <h3 className={styles.title}>{task.title}</h3>
 

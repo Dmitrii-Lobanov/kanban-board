@@ -9,12 +9,14 @@ import {
 import { ApiError } from "../api/api-error";
 import { moveTask } from "../api/tasks";
 import type { PersistedTask, TaskStatus } from "../domain/task";
-import { replaceTaskStatus } from "../domain/taskUtils";
+import { movePersistedTask } from "../domain/taskUtils";
 import { boardsQueryKey } from "../features/boards/hooks/useBoards";
 
 interface OptimisticTaskUpdate {
   taskId: string;
   status: TaskStatus;
+  columnId: string;
+  position: number;
 }
 
 type TaskErrors = Record<string, string | undefined>;
@@ -23,7 +25,11 @@ interface UseTaskStatusMutationResult {
   tasks: PersistedTask[];
   pendingTaskIds: ReadonlySet<string>;
   taskErrors: TaskErrors;
-  changeTaskStatus: (taskId: string, nextStatus: TaskStatus) => void;
+  changeTaskStatus: (
+    taskId: string,
+    nextStatus: TaskStatus,
+    destinationPosition?: number
+  ) => void;
 }
 
 export function useTaskStatusMutation(
@@ -48,7 +54,13 @@ export function useTaskStatusMutation(
   const [optimisticTasks, updateOptimisticTask] = useOptimistic(
     confirmedTasks,
     (currentTasks: PersistedTask[], update: OptimisticTaskUpdate) =>
-      replaceTaskStatus(currentTasks, update.taskId, update.status)
+      movePersistedTask(
+        currentTasks,
+        update.taskId,
+        update.status,
+        update.columnId,
+        update.position
+      )
   );
 
   const markTaskPending = (taskId: string) => {
@@ -73,7 +85,11 @@ export function useTaskStatusMutation(
     });
   };
 
-  const changeTaskStatus = (taskId: string, nextStatus: TaskStatus) => {
+  const changeTaskStatus = (
+    taskId: string,
+    nextStatus: TaskStatus,
+    requestedPosition?: number
+  ) => {
     const task = optimisticTasks.find(currentTask => currentTask.id === taskId);
 
     if (
@@ -87,10 +103,14 @@ export function useTaskStatusMutation(
     markTaskPending(taskId);
 
     const destinationColumnId = columnIdsByStatus[nextStatus];
-    const destinationPosition = optimisticTasks.filter(
+    const destinationTaskCount = optimisticTasks.filter(
       currentTask =>
         currentTask.status === nextStatus && currentTask.id !== taskId
     ).length;
+    const destinationPosition = Math.min(
+      requestedPosition ?? destinationTaskCount,
+      destinationTaskCount
+    );
 
     setTaskErrors(currentErrors => ({
       ...currentErrors,
@@ -101,6 +121,8 @@ export function useTaskStatusMutation(
       updateOptimisticTask({
         taskId,
         status: nextStatus,
+        columnId: destinationColumnId,
+        position: destinationPosition,
       });
 
       try {
@@ -111,15 +133,15 @@ export function useTaskStatusMutation(
         });
 
         setConfirmedTasks(currentTasks =>
-          currentTasks.map(currentTask =>
+          movePersistedTask(
+            currentTasks,
+            taskId,
+            nextStatus,
+            movedTask.columnId,
+            movedTask.position
+          ).map(currentTask =>
             currentTask.id === taskId
-              ? {
-                  ...currentTask,
-                  status: nextStatus,
-                  columnId: movedTask.columnId,
-                  position: movedTask.position,
-                  version: movedTask.version,
-                }
+              ? { ...currentTask, version: movedTask.version }
               : currentTask
           )
         );

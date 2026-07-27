@@ -1,4 +1,11 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -253,6 +260,37 @@ describe("KanbanBoard", () => {
           name: optimisticTaskTitle,
         })
       ).toBeInTheDocument();
+    });
+  });
+
+  it("drops a task before a specific destination task", async () => {
+    mockedMoveTask.mockResolvedValueOnce(
+      createMovedTaskResponse("task-1", "column-progress", 0)
+    );
+    await renderBoard();
+
+    const sourceCard = getTaskCard(optimisticTaskTitle);
+    const destinationCard = getTaskCard(draggableTaskTitle);
+    const dragData = new Map<string, string>();
+    const dataTransfer = {
+      effectAllowed: "none",
+      dropEffect: "none",
+      setData: (type: string, value: string) => dragData.set(type, value),
+      getData: (type: string) => dragData.get(type) ?? "",
+    };
+
+    expect(sourceCard).not.toBeNull();
+    expect(destinationCard).not.toBeNull();
+
+    fireEvent.dragStart(sourceCard!, { dataTransfer });
+    fireEvent.drop(destinationCard!, { dataTransfer });
+
+    await waitFor(() => {
+      expect(mockedMoveTask).toHaveBeenCalledWith("task-1", {
+        columnId: "column-progress",
+        position: 0,
+        expectedVersion: 1,
+      });
     });
   });
 

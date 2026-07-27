@@ -1,19 +1,21 @@
 import { type DragEvent, useState } from "react";
-import type { Task, TaskStatus } from "../../domain/task";
+import type { PersistedTask, TaskStatus } from "../../domain/task";
 import { TaskCard } from "../TaskCard";
 import styles from "./KanbanBoardColumn.module.css";
 
 interface KanbanBoardColumnProps {
   title: string;
   status: TaskStatus;
-  tasks: Task[];
+  tasks: PersistedTask[];
+  appendPosition: number;
   pendingTaskIds: ReadonlySet<string>;
   taskErrors: Record<string, string | undefined>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
   onDropTask: (
     event: DragEvent<HTMLElement>,
-    destinationStatus: TaskStatus
+    destinationStatus: TaskStatus,
+    destinationPosition: number
   ) => void;
 }
 
@@ -21,6 +23,7 @@ export function KanbanBoardColumn({
   title,
   status,
   tasks,
+  appendPosition,
   pendingTaskIds,
   taskErrors,
   onStatusChange,
@@ -53,7 +56,7 @@ export function KanbanBoardColumn({
 
   const handleDrop = (event: DragEvent<HTMLElement>) => {
     setIsDragOver(false);
-    onDropTask(event, status);
+    onDropTask(event, status, appendPosition);
   };
 
   return (
@@ -84,6 +87,11 @@ export function KanbanBoardColumn({
               error={taskErrors[task.id]}
               onStatusChange={onStatusChange}
               onDragStart={onDragStart}
+              onDrop={event => {
+                event.stopPropagation();
+                setIsDragOver(false);
+                onDropTask(event, status, task.position);
+              }}
             />
           ))
         ) : (
