@@ -8,12 +8,14 @@ if (!apiUrl) {
 
 export async function apiRequest(
   path: string,
-  init?: RequestInit
+  init?: RequestInit,
+  token?: string | null
 ): Promise<unknown> {
   const response = await fetch(`${apiUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   });

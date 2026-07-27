@@ -1,3 +1,4 @@
+import { useAuth } from "@clerk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useEffect,
@@ -36,6 +37,7 @@ export function useTaskStatusMutation(
   initialTasks: PersistedTask[],
   columnIdsByStatus: Record<TaskStatus, string>
 ): UseTaskStatusMutationResult {
+  const { getToken } = useAuth();
   const queryClient = useQueryClient();
   const [confirmedTasks, setConfirmedTasks] =
     useState<PersistedTask[]>(initialTasks);
@@ -126,11 +128,15 @@ export function useTaskStatusMutation(
       });
 
       try {
-        const movedTask = await moveTask(taskId, {
-          columnId: destinationColumnId,
-          position: destinationPosition,
-          expectedVersion: task.version,
-        });
+        const movedTask = await moveTask(
+          taskId,
+          {
+            columnId: destinationColumnId,
+            position: destinationPosition,
+            expectedVersion: task.version,
+          },
+          await getToken()
+        );
 
         setConfirmedTasks(currentTasks =>
           movePersistedTask(

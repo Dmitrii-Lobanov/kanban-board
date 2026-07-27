@@ -1,13 +1,21 @@
 import { StrictMode } from "react";
+import { ClerkProvider } from "@clerk/react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
-import { QueryProvider } from "./providers/query-provider.tsx";
+
+const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+console.log('VITE_CLERK_PUBLISHABLE_KEY', publishableKey)
+
+if (!publishableKey) {
+  throw new Error("VITE_CLERK_PUBLISHABLE_KEY is not configured.");
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <QueryProvider>
+    <ClerkProvider publishableKey={publishableKey}>
       <App />
-    </QueryProvider>
+    </ClerkProvider>
   </StrictMode>
 );

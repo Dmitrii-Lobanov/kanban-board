@@ -24,6 +24,7 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@clerk/backend": "^3.13.1",
     "@kanban-board/contracts": "*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",

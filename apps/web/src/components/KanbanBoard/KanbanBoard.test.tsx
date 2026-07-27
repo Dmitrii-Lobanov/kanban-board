@@ -15,6 +15,14 @@ import { getBoards } from "../../api/boards";
 import { moveTask } from "../../api/tasks";
 import { KanbanBoard } from "./KanbanBoard";
 
+vi.mock("@clerk/react", () => ({
+  useAuth: () => ({
+    getToken: vi.fn().mockResolvedValue("test-token"),
+    isLoaded: true,
+    isSignedIn: true,
+  }),
+}));
+
 vi.mock("../../api/tasks", () => ({
   moveTask: vi.fn(),
 }));
@@ -223,11 +231,15 @@ describe("KanbanBoard", () => {
       })
     ).toBeInTheDocument();
 
-    expect(mockedMoveTask).toHaveBeenCalledWith("task-1", {
-      columnId: "column-progress",
-      position: 1,
-      expectedVersion: 1,
-    });
+    expect(mockedMoveTask).toHaveBeenCalledWith(
+      "task-1",
+      {
+        columnId: "column-progress",
+        position: 1,
+        expectedVersion: 1,
+      },
+      "test-token"
+    );
 
     await act(async () => {
       request.resolve(createMovedTaskResponse("task-1", "column-progress", 1));
@@ -286,11 +298,15 @@ describe("KanbanBoard", () => {
     fireEvent.drop(destinationCard!, { dataTransfer });
 
     await waitFor(() => {
-      expect(mockedMoveTask).toHaveBeenCalledWith("task-1", {
-        columnId: "column-progress",
-        position: 0,
-        expectedVersion: 1,
-      });
+      expect(mockedMoveTask).toHaveBeenCalledWith(
+        "task-1",
+        {
+          columnId: "column-progress",
+          position: 0,
+          expectedVersion: 1,
+        },
+        "test-token"
+      );
     });
   });
 

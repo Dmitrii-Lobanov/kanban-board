@@ -106,8 +106,8 @@ function parseBoard(value: unknown): BoardDto {
   };
 }
 
-export async function getBoards(): Promise<BoardDto[]> {
-  const response = await apiRequest("/boards");
+export async function getBoards(token?: string | null): Promise<BoardDto[]> {
+  const response = await apiRequest("/boards", undefined, token);
 
   if (!Array.isArray(response)) {
     throw new Error("Invalid boards response: expected an array.");
