@@ -2,7 +2,9 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { TaskResponse } from "@kanban-board/contracts";
+import type { BoardResponse, TaskResponse } from "@kanban-board/contracts";
+import { ApiError } from "../../api/api-error";
+import { getBoards } from "../../api/boards";
 import { moveTask } from "../../api/tasks";
 import { KanbanBoard } from "./KanbanBoard";
 
@@ -10,79 +12,78 @@ vi.mock("../../api/tasks", () => ({
   moveTask: vi.fn(),
 }));
 
-vi.mock("../../features/boards/hooks/useBoards", () => ({
-  useBoards: () => ({
-    isPending: false,
-    isError: false,
-    data: [
+vi.mock("../../api/boards", () => ({
+  getBoards: vi.fn(),
+}));
+
+const initialBoards: BoardResponse[] = [
+  {
+    id: "board-1",
+    title: "Board",
+    position: 0,
+    workspaceId: "workspace-1",
+    createdAt: "2026-07-23T12:00:00.000Z",
+    updatedAt: "2026-07-23T12:00:00.000Z",
+    columns: [
       {
-        id: "board-1",
-        title: "Board",
+        id: "column-todo",
+        title: "A title that does not imply status",
+        key: "todo",
         position: 0,
-        workspaceId: "workspace-1",
+        boardId: "board-1",
         createdAt: "2026-07-23T12:00:00.000Z",
         updatedAt: "2026-07-23T12:00:00.000Z",
-        columns: [
+        tasks: [
           {
-            id: "column-todo",
-            title: "A title that does not imply status",
-            key: "todo",
+            id: "task-1",
+            title: "Model optimistic task state",
+            description: null,
+            priority: "MEDIUM",
             position: 0,
-            boardId: "board-1",
+            version: 1,
+            columnId: "column-todo",
             createdAt: "2026-07-23T12:00:00.000Z",
             updatedAt: "2026-07-23T12:00:00.000Z",
-            tasks: [
-              {
-                id: "task-1",
-                title: "Model optimistic task state",
-                description: null,
-                priority: "MEDIUM",
-                position: 0,
-                version: 1,
-                columnId: "column-todo",
-                createdAt: "2026-07-23T12:00:00.000Z",
-                updatedAt: "2026-07-23T12:00:00.000Z",
-              },
-            ],
-          },
-          {
-            id: "column-progress",
-            title: "Another editable title",
-            key: "in-progress",
-            position: 1,
-            boardId: "board-1",
-            createdAt: "2026-07-23T12:00:00.000Z",
-            updatedAt: "2026-07-23T12:00:00.000Z",
-            tasks: [
-              {
-                id: "task-4",
-                title: "Build native drag-and-drop",
-                description: null,
-                priority: "HIGH",
-                position: 0,
-                version: 1,
-                columnId: "column-progress",
-                createdAt: "2026-07-23T12:00:00.000Z",
-                updatedAt: "2026-07-23T12:00:00.000Z",
-              },
-            ],
-          },
-          {
-            id: "column-done",
-            title: "Completed work",
-            key: "done",
-            position: 2,
-            boardId: "board-1",
-            createdAt: "2026-07-23T12:00:00.000Z",
-            updatedAt: "2026-07-23T12:00:00.000Z",
-            tasks: [],
           },
         ],
       },
+      {
+        id: "column-progress",
+        title: "Another editable title",
+        key: "in-progress",
+        position: 1,
+        boardId: "board-1",
+        createdAt: "2026-07-23T12:00:00.000Z",
+        updatedAt: "2026-07-23T12:00:00.000Z",
+        tasks: [
+          {
+            id: "task-4",
+            title: "Build native drag-and-drop",
+            description: null,
+            priority: "HIGH",
+            position: 0,
+            version: 1,
+            columnId: "column-progress",
+            createdAt: "2026-07-23T12:00:00.000Z",
+            updatedAt: "2026-07-23T12:00:00.000Z",
+          },
+        ],
+      },
+      {
+        id: "column-done",
+        title: "Completed work",
+        key: "done",
+        position: 2,
+        boardId: "board-1",
+        createdAt: "2026-07-23T12:00:00.000Z",
+        updatedAt: "2026-07-23T12:00:00.000Z",
+        tasks: [],
+      },
     ],
-  }),
-}));
+  },
+];
 
+const mockedGetBoards = vi.mocked(getBoards);
 const mockedMoveTask = vi.mocked(moveTask);
 const optimisticTaskTitle = "Model optimistic task state";
 const draggableTaskTitle = "Build native drag-and-drop";
@@ -141,20 +142,52 @@ function createMovedTaskResponse(
   };
 }
 
-function renderBoard() {
+function createBoardsAfterConflictingMove(): BoardResponse[] {
+  return initialBoards.map(board => ({
+    ...board,
+    columns: board.columns.map(column => {
+      if (column.key === "todo") {
+        return {
+          ...column,
+          tasks: column.tasks.filter(task => task.id !== "task-1"),
+        };
+      }
+
+      if (column.key === "done") {
+        return {
+          ...column,
+          tasks: [
+            ...column.tasks,
+            createMovedTaskResponse("task-1", column.id, column.tasks.length),
+          ],
+        };
+      }
+
+      return column;
+    }),
+  }));
+}
+
+async function renderBoard() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
 
-  return render(
+  const result = render(
     <QueryClientProvider client={queryClient}>
       <KanbanBoard />
     </QueryClientProvider>
   );
+
+  await screen.findByRole("heading", { name: optimisticTaskTitle });
+
+  return { ...result, queryClient };
 }
 
 describe("KanbanBoard", () => {
   beforeEach(() => {
+    mockedGetBoards.mockReset();
+    mockedGetBoards.mockResolvedValue(initialBoards);
     mockedMoveTask.mockReset();
   });
 
@@ -165,7 +198,7 @@ describe("KanbanBoard", () => {
 
     const user = userEvent.setup();
 
-    renderBoard();
+    await renderBoard();
 
     const taskCard = getTaskCard(optimisticTaskTitle);
 
@@ -202,7 +235,7 @@ describe("KanbanBoard", () => {
 
     const user = userEvent.setup();
 
-    renderBoard();
+    await renderBoard();
 
     const taskCard = getTaskCard(optimisticTaskTitle);
 
@@ -230,7 +263,7 @@ describe("KanbanBoard", () => {
 
     const user = userEvent.setup();
 
-    renderBoard();
+    await renderBoard();
 
     const taskCard = getTaskCard(optimisticTaskTitle);
 
@@ -271,6 +304,41 @@ describe("KanbanBoard", () => {
     );
   });
 
+  it("refetches and applies server state after a version conflict", async () => {
+    mockedGetBoards
+      .mockResolvedValueOnce(initialBoards)
+      .mockResolvedValueOnce(createBoardsAfterConflictingMove());
+    mockedMoveTask.mockRejectedValueOnce(
+      new ApiError("Task has been modified by another client.", 409)
+    );
+    const user = userEvent.setup();
+
+    await renderBoard();
+
+    const taskCard = getTaskCard(optimisticTaskTitle);
+
+    expect(taskCard).not.toBeNull();
+
+    await user.click(
+      within(taskCard!).getByRole("button", {
+        name: "Move to In Progress",
+      })
+    );
+
+    await waitFor(() => {
+      expect(
+        within(getColumn("Done")).getByRole("heading", {
+          name: optimisticTaskTitle,
+        })
+      ).toBeInTheDocument();
+    });
+
+    expect(mockedGetBoards).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /changed elsewhere.*refreshed/i
+    );
+  });
+
   it("disables only the task whose request is pending", async () => {
     const request = createDeferredPromise<TaskResponse>();
 
@@ -278,7 +346,7 @@ describe("KanbanBoard", () => {
 
     const user = userEvent.setup();
 
-    renderBoard();
+    await renderBoard();
 
     const firstTask = getTaskCard(optimisticTaskTitle);
 
@@ -321,7 +389,7 @@ describe("KanbanBoard", () => {
 
     const user = userEvent.setup();
 
-    renderBoard();
+    await renderBoard();
 
     const taskCard = getTaskCard(optimisticTaskTitle);
 
@@ -361,7 +429,7 @@ describe("KanbanBoard", () => {
 
     const user = userEvent.setup();
 
-    renderBoard();
+    await renderBoard();
 
     const firstTask = getTaskCard(optimisticTaskTitle);
     const secondTask = getTaskCard(draggableTaskTitle);
