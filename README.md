@@ -259,6 +259,25 @@ Install dependencies
 npm install
 ```
 
+Start PostgreSQL, the API, and the web app in separate terminals:
+
+```bash
+docker compose up -d postgres
+npm run start:dev --workspace @kanban-board/api
+npm run dev:web
+```
+
+## PostgreSQL integration tests
+
+Integration tests use an isolated, ephemeral `kanban_test` database on port
+`5434`. They refuse to run against any other database name.
+
+```bash
+docker compose --profile test up -d --wait postgres-test
+DATABASE_URL='postgresql://kanban:kanban@localhost:5434/kanban_test?schema=public' npm exec --workspace @kanban-board/api -- prisma migrate deploy
+TEST_DATABASE_URL='postgresql://kanban:kanban@localhost:5434/kanban_test?schema=public' npm run test:integration --workspace @kanban-board/api
+```
+
 Start the frontend
 
 ```bash
