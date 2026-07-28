@@ -6,8 +6,6 @@ import App from "./App.tsx";
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
-console.log('VITE_CLERK_PUBLISHABLE_KEY', publishableKey)
-
 if (!publishableKey) {
   throw new Error("VITE_CLERK_PUBLISHABLE_KEY is not configured.");
 }
