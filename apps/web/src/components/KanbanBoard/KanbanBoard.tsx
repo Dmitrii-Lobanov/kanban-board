@@ -123,9 +123,9 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
             }
             pendingTaskIds={pendingTaskIds}
             taskErrors={taskErrors}
-            onCreateTask={async title => {
+            onCreateTask={async request => {
               await createTaskMutation.mutateAsync({
-                title,
+                ...request,
                 columnId: columnIdsByStatus[column.status],
               });
             }}

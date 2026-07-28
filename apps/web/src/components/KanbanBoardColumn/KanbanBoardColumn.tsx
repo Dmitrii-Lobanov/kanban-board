@@ -1,5 +1,8 @@
 import { type DragEvent, type FormEvent, useState } from "react";
-import type { UpdateTaskRequest } from "@kanban-board/contracts";
+import type {
+  CreateTaskRequest,
+  UpdateTaskRequest,
+} from "@kanban-board/contracts";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
 import { TaskCard } from "../TaskCard";
 import styles from "./KanbanBoardColumn.module.css";
@@ -11,7 +14,7 @@ interface KanbanBoardColumnProps {
   appendPosition: number;
   pendingTaskIds: ReadonlySet<string>;
   taskErrors: Record<string, string | undefined>;
-  onCreateTask: (title: string) => Promise<void>;
+  onCreateTask: (request: Omit<CreateTaskRequest, "columnId">) => Promise<void>;
   onUpdateTask: (taskId: string, request: UpdateTaskRequest) => Promise<void>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
@@ -38,6 +41,9 @@ export function KanbanBoardColumn({
   const [isDragOver, setIsDragOver] = useState(false);
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [newTaskPriority, setNewTaskPriority] =
+    useState<NonNullable<CreateTaskRequest["priority"]>>("MEDIUM");
   const [createError, setCreateError] = useState<string>();
   const [isCreating, setIsCreating] = useState(false);
 
@@ -81,8 +87,14 @@ export function KanbanBoardColumn({
     setIsCreating(true);
 
     try {
-      await onCreateTask(title);
+      await onCreateTask({
+        title,
+        description: newTaskDescription.trim() || undefined,
+        priority: newTaskPriority,
+      });
       setNewTaskTitle("");
+      setNewTaskDescription("");
+      setNewTaskPriority("MEDIUM");
       setIsAddingTask(false);
     } catch {
       setCreateError("Unable to create the task. Please try again.");
@@ -136,6 +148,44 @@ export function KanbanBoardColumn({
             disabled={isCreating}
             onChange={event => setNewTaskTitle(event.target.value)}
           />
+          <label
+            className={styles.createLabel}
+            htmlFor={`${headingId}-description`}
+          >
+            Description
+          </label>
+          <textarea
+            id={`${headingId}-description`}
+            className={styles.createInput}
+            value={newTaskDescription}
+            maxLength={2000}
+            rows={3}
+            disabled={isCreating}
+            onChange={event => setNewTaskDescription(event.target.value)}
+          />
+          <label
+            className={styles.createLabel}
+            htmlFor={`${headingId}-priority`}
+          >
+            Priority
+          </label>
+          <select
+            id={`${headingId}-priority`}
+            className={styles.createInput}
+            value={newTaskPriority}
+            disabled={isCreating}
+            onChange={event => {
+              const value = event.target.value;
+
+              if (value === "LOW" || value === "MEDIUM" || value === "HIGH") {
+                setNewTaskPriority(value);
+              }
+            }}
+          >
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+          </select>
           <div className={styles.createActions}>
             <button type="submit" disabled={isCreating}>
               {isCreating ? "Adding…" : "Add task"}
@@ -146,6 +196,8 @@ export function KanbanBoardColumn({
               onClick={() => {
                 setIsAddingTask(false);
                 setNewTaskTitle("");
+                setNewTaskDescription("");
+                setNewTaskPriority("MEDIUM");
                 setCreateError(undefined);
               }}
             >

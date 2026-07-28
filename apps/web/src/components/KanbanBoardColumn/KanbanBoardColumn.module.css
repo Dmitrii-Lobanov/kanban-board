@@ -153,6 +153,10 @@
   font: inherit;
 }
 
+textarea.createInput {
+  resize: vertical;
+}
+
 .createInput:focus {
   border-color: #6366f1;
   outline: 3px solid rgb(99 102 241 / 16%);

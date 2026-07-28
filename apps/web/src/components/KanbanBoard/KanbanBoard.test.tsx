@@ -236,6 +236,14 @@ describe("KanbanBoard", () => {
       within(doneColumn).getByLabelText("Task title"),
       "Ship portfolio"
     );
+    await user.type(
+      within(doneColumn).getByLabelText("Description"),
+      "Publish the final case study"
+    );
+    await user.selectOptions(
+      within(doneColumn).getByLabelText("Priority"),
+      "HIGH"
+    );
     await user.click(
       within(doneColumn).getByRole("button", { name: "Add task" })
     );
@@ -244,6 +252,8 @@ describe("KanbanBoard", () => {
       expect(mockedCreateTask).toHaveBeenCalledWith(
         {
           title: "Ship portfolio",
+          description: "Publish the final case study",
+          priority: "HIGH",
           columnId: "column-done",
         },
         "test-token"
