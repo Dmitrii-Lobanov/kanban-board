@@ -1,344 +1,192 @@
 # Reliable Kanban Board
 
-> A production-oriented Kanban application built with React, TypeScript, NestJS, and PostgreSQL, demonstrating frontend architecture, optimistic UI, backend engineering, authentication, concurrency control, and production-grade testing.
+A production-deployed Kanban application demonstrating authenticated data access, optimistic UI, rollback, concurrency control, relational persistence, and automated testing.
 
-This project accompanies the Medium article **Designing and Implementing a Reliable Kanban Board in React: Optimistic Updates, Concurrency, and State Modeling**.
+## Live demo
 
-The repository started as a frontend architecture case study and is now evolving into a complete full-stack application following a documented implementation roadmap. The goal is not to build another CRUD demo, but to showcase engineering decisions behind a production-ready collaborative application.
+- Web: https://kanban-board-psi-taupe.vercel.app
+- API health: https://kanban-board-api-xdda.onrender.com/health
+- Repository: https://github.com/Dmitrii-Lobanov/kanban-board
+- [Related Medium article](https://medium.com/@dmitriilobanov3/frontend-system-design-in-practice-building-a-reliable-kanban-board-in-react-9dc9f488a69f)
 
----
+The API runs on Render's free tier, so its first request after inactivity may take several seconds.
 
-## 🚀 Live Demo
+## What it demonstrates
 
-https://kanban-board-psi-taupe.vercel.app/
+- Clerk sign-up, sign-in, and protected API requests
+- User-scoped workspaces and boards
+- Create, edit, move, assign, prioritize, and delete tasks
+- Optimistic updates with rollback and inline failure states
+- Version-based conflict detection for concurrent mutations
+- Stable column keys across the database and API boundary
+- PostgreSQL persistence through Prisma migrations
+- Shared TypeScript API contracts
+- Unit, component, API integration, and database integration tests
+- GitHub Actions CI and separate frontend/API deployments
 
-> Currently demonstrates the frontend implementation. The backend integration is under active development.
-
-## 💻 GitHub Repository
-
-https://github.com/Dmitrii-Lobanov/kanban-board
-
-## 📝 Medium Article
-
-https://medium.com/@dmitriilobanov3/frontend-system-design-in-practice-building-a-reliable-kanban-board-in-react-9dc9f488a69f
-
----
-
-# Current Status
-
-The project is being implemented incrementally.
-
-✅ React frontend
-
-✅ Optimistic updates
-
-✅ Rollback
-
-✅ Per-task concurrency
-
-✅ Accessibility
-
-✅ Unit & integration tests
-
-✅ GitHub Actions
-
-✅ npm workspaces
-
-🚧 NestJS backend
-
-🚧 PostgreSQL
-
-🚧 Prisma
-
-🚧 Authentication
-
-🚧 Storybook
-
-🚧 Playwright
-
----
-
-# Project Structure
+## Architecture
 
 ```text
-kanban-board/
-│
-├── apps/
-│   ├── web/                 React application
-│   └── api/                 NestJS API (coming next)
-│
-├── packages/
-│   └── contracts/           Shared DTOs and schemas
-│
-├── docs/
-│   └── KANBAN_IMPLEMENTATION_PLAN.md
-│
-├── package.json
-└── tsconfig.json
+Browser
+  |
+  | Clerk session token
+  v
+React + Vite (Vercel)
+  |
+  | authenticated REST requests
+  v
+NestJS + Fastify (Render)
+  |
+  | Prisma
+  v
+PostgreSQL (Render)
 ```
 
----
-
-# Why this project?
-
-Most Kanban tutorials demonstrate drag-and-drop.
-
-Real production applications require significantly more engineering:
-
-- optimistic UI
-- rollback
-- concurrent mutations
-- backend consistency
-- authentication
-- authorization
-- conflict detection
-- maintainable architecture
-- reliable testing
-- deployment
-
-This repository documents the implementation of those concerns step by step.
-
----
-
-# Frontend Features
-
-- ✅ Optimistic UI updates
-- ✅ Automatic rollback
-- ✅ Per-task pending state
-- ✅ Concurrent mutations
-- ✅ Native HTML Drag & Drop
-- ✅ Accessible keyboard movement
-- ✅ Search
-- ✅ Filtering
-- ✅ Derived state
-- ✅ Inline task errors
-- ✅ Unit tests
-- ✅ Integration tests
-
----
-
-# Full-Stack Roadmap
-
-The repository is being expanded into a production-oriented architecture.
-
-## Phase 1
-
-- npm workspaces
-- monorepo
-- frontend migration
-
-## Phase 2
-
-- PostgreSQL
-- Prisma
-- database schema
-
-## Phase 3
-
-- NestJS REST API
-
-## Phase 4
-
-- Real persistence
-
-## Phase 5
-
-- Authentication
-
-## Phase 6
-
-- Board management
-
-## Phase 7
-
-- Optimistic concurrency
-
-## Phase 8
-
-- Authorization
-
-## Phase 9
-
-- Storybook
-
-## Phase 10
-
-- Playwright
-
----
-
-# Frontend Architecture
+The monorepo is organized as follows:
 
 ```text
-apps/web/src
-│
-├── api
-├── components
-├── domain
-├── hooks
-├── data
-└── test
+apps/
+  api/                  NestJS API, Prisma schema, migrations, tests
+  web/                  React application and component tests
+packages/
+  contracts/            Shared request and response contracts
+docs/                    Implementation notes and roadmap
 ```
 
-Presentation, business logic, asynchronous mutations, and state transformations are separated to keep the application predictable and maintainable.
+The backend owns persistence models and maps Prisma values to an explicit API contract:
 
----
+| Prisma        | API           |
+| ------------- | ------------- |
+| `TODO`        | `todo`        |
+| `IN_PROGRESS` | `in-progress` |
+| `DONE`        | `done`        |
 
-# State Model
+The frontend uses these stable keys for behavior and treats column titles as display-only content.
 
-Instead of storing multiple collections, the application keeps a single task collection and derives every UI representation.
+## Tech stack
 
-| State           | Purpose                 |
-| --------------- | ----------------------- |
-| confirmedTasks  | Server-confirmed state  |
-| optimisticTasks | Temporary optimistic UI |
-| pendingTaskIds  | Per-task loading        |
-| taskErrors      | Inline errors           |
-| searchQuery     | Search                  |
-| assigneeFilter  | Filtering               |
+| Area           | Technology                                              |
+| -------------- | ------------------------------------------------------- |
+| Frontend       | React 19, TypeScript, Vite, TanStack Query, CSS Modules |
+| Backend        | NestJS, Fastify, TypeScript                             |
+| Data           | PostgreSQL, Prisma                                      |
+| Authentication | Clerk                                                   |
+| Testing        | Jest, Vitest, React Testing Library                     |
+| Delivery       | GitHub Actions, Vercel, Render, Docker Compose          |
 
----
+## Run locally
 
-# Optimistic Update Flow
+### Prerequisites
 
-```text
-User action
-      │
-      ▼
-Optimistic update
-      │
-      ▼
-REST request
-      │
- ┌────┴────┐
- │         │
- ▼         ▼
-Success  Failure
- │         │
- ▼         ▼
-Persist  Rollback
-            │
-            ▼
-     Inline error
-```
+- Node.js 22+
+- Docker with Docker Compose
+- A Clerk application
 
----
-
-# Tech Stack
-
-## Frontend
-
-- React 19
-- TypeScript
-- Vite
-- CSS Modules
-- Vitest
-- React Testing Library
-
-## Backend (in progress)
-
-- NestJS
-- Fastify
-- Prisma
-- PostgreSQL
-
-## Tooling
-
-- npm Workspaces
-- ESLint
-- Prettier
-- GitHub Actions
-
----
-
-# Running Locally
-
-Install dependencies
+### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-Start PostgreSQL, the API, and the web app in separate terminals:
+### 2. Configure environment variables
+
+Copy the example files and replace the Clerk placeholders with values from your Clerk application:
+
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+```
+
+The API requires:
+
+```dotenv
+DATABASE_URL="postgresql://kanban:kanban@localhost:5433/kanban?schema=public"
+CLERK_SECRET_KEY="your_clerk_secret_key"
+CLERK_AUTHORIZED_PARTIES="http://localhost:5173"
+```
+
+The web application requires:
+
+```dotenv
+VITE_API_URL="http://localhost:3000"
+VITE_CLERK_PUBLISHABLE_KEY="your_clerk_publishable_key"
+```
+
+Never commit real secret keys. Vite variables are included in the browser bundle, so only the Clerk publishable key belongs in `VITE_*` configuration.
+
+### 3. Start PostgreSQL and apply migrations
 
 ```bash
 docker compose up -d postgres
+npm exec --workspace @kanban-board/api -- prisma migrate deploy
+npm exec --workspace @kanban-board/api -- prisma generate
+```
+
+`prisma migrate deploy` applies existing migrations without creating or resetting data.
+
+### 4. Start the API and web application
+
+Run these in separate terminals:
+
+```bash
 npm run start:dev --workspace @kanban-board/api
-npm run dev:web
 ```
-
-## PostgreSQL integration tests
-
-Integration tests use an isolated, ephemeral `kanban_test` database on port
-`5434`. They refuse to run against any other database name.
-
-```bash
-docker compose --profile test up -d --wait postgres-test
-DATABASE_URL='postgresql://kanban:kanban@localhost:5434/kanban_test?schema=public' npm exec --workspace @kanban-board/api -- prisma migrate deploy
-TEST_DATABASE_URL='postgresql://kanban:kanban@localhost:5434/kanban_test?schema=public' npm run test:integration --workspace @kanban-board/api
-```
-
-Start the frontend
 
 ```bash
 npm run dev:web
 ```
 
-Build
+Open http://localhost:5173. The API health endpoint is available at http://localhost:3000/health.
 
-```bash
-npm run build:web
-```
+## Verification
 
-Run tests
-
-```bash
-npm run test:run
-```
-
-Run the complete validation pipeline
+Run the standard local quality gate:
 
 ```bash
 npm run check
 ```
 
----
+It checks formatting and linting, runs API and frontend tests, and builds the web application. Build every workspace with:
 
-# Current CI
+```bash
+npm run build
+```
 
-Every push runs:
+### PostgreSQL integration tests
 
-- formatting
-- linting
-- tests
-- production build
+Database integration tests use an isolated, ephemeral `kanban_test` database on port `5434`. The test setup refuses to run against another database name.
 
-GitHub Actions will later be extended with backend integration tests and Playwright.
+```bash
+docker compose --profile test up -d --wait postgres-test
+DATABASE_URL='postgresql://kanban:kanban@localhost:5434/kanban_test?schema=public' npm exec --workspace @kanban-board/api -- prisma migrate deploy
+TEST_DATABASE_URL='postgresql://kanban:kanban@localhost:5434/kanban_test?schema=public' npm run test:integration
+```
 
----
+## Reliability decisions
 
-# Upcoming Features
+- **Optimistic mutations:** the UI updates immediately, then confirms or rolls back based on the API response.
+- **Per-task mutation state:** independent task operations do not unnecessarily block the entire board.
+- **Optimistic concurrency:** task versions prevent stale clients from silently overwriting newer changes.
+- **Authorization at the service boundary:** authenticated users only receive and mutate data available through their workspace membership.
+- **Explicit API mapping:** persistence enums and database records do not leak directly into frontend behavior.
+- **Isolated database tests:** integration tests run against a dedicated database and are included in CI.
 
-- Authentication
-- PostgreSQL persistence
-- Prisma
-- Board sharing
-- Role-based permissions
-- Optimistic concurrency
-- Storybook
-- Playwright
-- Docker
-- Deployment
+## Deployment
 
----
+- The React application is built and hosted by Vercel.
+- The NestJS API and PostgreSQL database are hosted by Render.
+- Render applies committed Prisma migrations when the service starts.
+- Production origins are explicitly allowed by both CORS and Clerk token verification.
 
-# Documentation
+Deployment secrets are configured in the hosting dashboards and are not stored in this repository.
 
-- `docs/KANBAN_IMPLEMENTATION_PLAN.md` — complete implementation roadmap
-- Medium article (coming soon)
+## Further improvements
 
----
+- Browser-level Playwright tests for the authenticated production flow
+- Responsive and accessibility audit
+- Structured production logging and error monitoring
+- Board management and workspace invitations
 
-# License
+## License
 
 MIT
