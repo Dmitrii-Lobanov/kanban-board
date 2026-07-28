@@ -150,6 +150,61 @@
   background: #4f46e5;
 }
 
+.deleteConfirmation {
+  margin-top: 0.85rem;
+  padding: 0.75rem;
+  border: 1px solid #fecdca;
+  border-radius: 0.7rem;
+  color: #912018;
+  background: #fff6f5;
+  font-size: 0.78rem;
+}
+
+.deleteConfirmation > p:first-child {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.deleteActions {
+  display: flex;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.deleteActions button,
+.deleteButton {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d0d5dd;
+  border-radius: 0.5rem;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.deleteActions button:first-child {
+  border-color: #d92d20;
+  color: #fff;
+  background: #d92d20;
+}
+
+.deleteButton {
+  margin-top: 0.75rem;
+  border-color: transparent;
+  color: #b42318;
+  background: transparent;
+}
+
+.deleteButton:hover:not(:disabled) {
+  background: #fff1f0;
+}
+
+.deleteActions button:disabled,
+.deleteButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .assignee {
   display: inline-flex;
   align-items: center;

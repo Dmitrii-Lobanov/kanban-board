@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardResponse, TaskResponse } from "@kanban-board/contracts";
 import { ApiError } from "../../api/api-error";
 import { getBoards } from "../../api/boards";
-import { createTask, moveTask, updateTask } from "../../api/tasks";
+import { createTask, deleteTask, moveTask, updateTask } from "../../api/tasks";
 import { KanbanBoard } from "./KanbanBoard";
 
 vi.mock("@clerk/react", () => ({
@@ -25,6 +25,7 @@ vi.mock("@clerk/react", () => ({
 
 vi.mock("../../api/tasks", () => ({
   createTask: vi.fn(),
+  deleteTask: vi.fn(),
   moveTask: vi.fn(),
   updateTask: vi.fn(),
 }));
@@ -102,6 +103,7 @@ const initialBoards: BoardResponse[] = [
 
 const mockedGetBoards = vi.mocked(getBoards);
 const mockedCreateTask = vi.mocked(createTask);
+const mockedDeleteTask = vi.mocked(deleteTask);
 const mockedMoveTask = vi.mocked(moveTask);
 const mockedUpdateTask = vi.mocked(updateTask);
 const optimisticTaskTitle = "Model optimistic task state";
@@ -208,6 +210,7 @@ describe("KanbanBoard", () => {
     mockedGetBoards.mockReset();
     mockedGetBoards.mockResolvedValue(initialBoards);
     mockedCreateTask.mockReset();
+    mockedDeleteTask.mockReset();
     mockedMoveTask.mockReset();
     mockedUpdateTask.mockReset();
   });
@@ -301,6 +304,30 @@ describe("KanbanBoard", () => {
           priority: "HIGH",
           expectedVersion: 1,
         },
+        "test-token"
+      );
+    });
+  });
+
+  it("requires confirmation before deleting a versioned task", async () => {
+    mockedDeleteTask.mockResolvedValueOnce();
+    const user = userEvent.setup();
+
+    await renderBoard();
+
+    const taskCard = getTaskCard(optimisticTaskTitle);
+    expect(taskCard).not.toBeNull();
+
+    await user.click(within(taskCard!).getByRole("button", { name: "Delete" }));
+    expect(mockedDeleteTask).not.toHaveBeenCalled();
+    await user.click(
+      within(taskCard!).getByRole("button", { name: "Delete task" })
+    );
+
+    await waitFor(() => {
+      expect(mockedDeleteTask).toHaveBeenCalledWith(
+        "task-1",
+        { expectedVersion: 1 },
         "test-token"
       );
     });

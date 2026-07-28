@@ -7,6 +7,7 @@ import {
 } from "../../domain/taskUtils";
 import { useBoards } from "../../features/boards/hooks/useBoards";
 import { useCreateTaskMutation } from "../../hooks/useCreateTaskMutation";
+import { useDeleteTaskMutation } from "../../hooks/useDeleteTaskMutation";
 import { useTaskStatusMutation } from "../../hooks/useTaskStatusMutation";
 import { useUpdateTaskMutation } from "../../hooks/useUpdateTaskMutation";
 import { KanbanBoardColumn } from "../KanbanBoardColumn";
@@ -42,6 +43,7 @@ interface BoardContentProps {
 
 function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
   const createTaskMutation = useCreateTaskMutation();
+  const deleteTaskMutation = useDeleteTaskMutation();
   const updateTaskMutation = useUpdateTaskMutation();
   const { tasks, pendingTaskIds, taskErrors, changeTaskStatus } =
     useTaskStatusMutation(initialTasks, columnIdsByStatus);
@@ -127,6 +129,12 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
               await createTaskMutation.mutateAsync({
                 ...request,
                 columnId: columnIdsByStatus[column.status],
+              });
+            }}
+            onDeleteTask={async (taskId, expectedVersion) => {
+              await deleteTaskMutation.mutateAsync({
+                taskId,
+                request: { expectedVersion },
               });
             }}
             onUpdateTask={async (taskId, request) => {

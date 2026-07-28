@@ -16,6 +16,7 @@ interface KanbanBoardColumnProps {
   pendingTaskIds: ReadonlySet<string>;
   taskErrors: Record<string, string | undefined>;
   onCreateTask: (request: Omit<CreateTaskRequest, "columnId">) => Promise<void>;
+  onDeleteTask: (taskId: string, expectedVersion: number) => Promise<void>;
   onUpdateTask: (taskId: string, request: UpdateTaskRequest) => Promise<void>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
@@ -34,6 +35,7 @@ export function KanbanBoardColumn({
   pendingTaskIds,
   taskErrors,
   onCreateTask,
+  onDeleteTask,
   onUpdateTask,
   onStatusChange,
   onDragStart,
@@ -221,6 +223,7 @@ export function KanbanBoardColumn({
               task={task}
               isPending={pendingTaskIds.has(task.id)}
               error={taskErrors[task.id]}
+              onDeleteTask={onDeleteTask}
               onUpdateTask={onUpdateTask}
               onStatusChange={onStatusChange}
               onDragStart={onDragStart}

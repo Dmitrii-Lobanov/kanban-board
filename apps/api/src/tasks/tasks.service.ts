@@ -13,6 +13,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { mapTaskResponse } from '../boards/board-response.mapper';
 import { CreateTaskDto } from './dto/create-task.dto';
+import { DeleteTaskDto } from './dto/delete-task.dto';
 import { MoveTaskDto } from './dto/move-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 
@@ -91,6 +92,79 @@ export class TasksService {
     }
 
     throw new ConflictException('Unable to create task. Please try again.');
+  }
+
+  async deleteTask(
+    userId: string,
+    taskId: string,
+    dto: DeleteTaskDto,
+  ): Promise<void> {
+    await this.prisma.$transaction(
+      async (transaction) => {
+        const task = await transaction.task.findFirst({
+          where: {
+            id: taskId,
+            column: {
+              board: {
+                workspace: {
+                  members: {
+                    some: {
+                      userId,
+                      role: {
+                        in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          select: {
+            id: true,
+            columnId: true,
+            position: true,
+            version: true,
+          },
+        });
+
+        if (!task) {
+          throw new NotFoundException('Task not found.');
+        }
+
+        if (task.version !== dto.expectedVersion) {
+          throw new ConflictException(
+            'Task has been modified by another client.',
+          );
+        }
+
+        const deletion = await transaction.task.deleteMany({
+          where: { id: task.id, version: dto.expectedVersion },
+        });
+
+        if (deletion.count !== 1) {
+          throw new ConflictException(
+            'Task has been modified by another client.',
+          );
+        }
+
+        const tasksToShift = await transaction.task.findMany({
+          where: {
+            columnId: task.columnId,
+            position: { gt: task.position },
+          },
+          select: { id: true, position: true },
+          orderBy: { position: 'asc' },
+        });
+
+        for (const taskToShift of tasksToShift) {
+          await transaction.task.update({
+            where: { id: taskToShift.id },
+            data: { position: taskToShift.position - 1 },
+          });
+        }
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 
   async updateTask(userId: string, taskId: string, dto: UpdateTaskDto) {

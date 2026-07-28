@@ -34,6 +34,10 @@ export type UpdateTaskRequest = {
   expectedVersion: number;
 };
 
+export type DeleteTaskRequest = {
+  expectedVersion: number;
+};
+
 export type ColumnResponse = {
   id: string;
   title: string;

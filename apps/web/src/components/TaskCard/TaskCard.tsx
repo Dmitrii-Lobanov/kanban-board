@@ -9,6 +9,7 @@ interface TaskCardProps {
   task: PersistedTask;
   isPending: boolean;
   error?: string;
+  onDeleteTask: (taskId: string, expectedVersion: number) => Promise<void>;
   onUpdateTask: (taskId: string, request: UpdateTaskRequest) => Promise<void>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
@@ -37,6 +38,7 @@ export function TaskCard({
   task,
   isPending,
   error,
+  onDeleteTask,
   onUpdateTask,
   onStatusChange,
   onDragStart,
@@ -45,6 +47,9 @@ export function TaskCard({
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState<string>();
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string>();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [priority, setPriority] = useState(task.priority);
@@ -91,12 +96,29 @@ export function TaskCard({
     }
   };
 
+  const handleDelete = async () => {
+    setDeleteError(undefined);
+    setIsDeleting(true);
+
+    try {
+      await onDeleteTask(task.id, task.version);
+    } catch (deleteRequestError) {
+      setDeleteError(
+        deleteRequestError instanceof ApiError &&
+          deleteRequestError.status === 409
+          ? "This task changed elsewhere. Review the refreshed task and try again."
+          : "Unable to delete the task. Please try again."
+      );
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <article
       className={styles.card}
       aria-busy={isPending}
       aria-describedby={describedBy}
-      draggable={!isPending && !isEditing}
+      draggable={!isPending && !isEditing && !isConfirmingDelete}
       onDragStart={event => {
         if (!isPending) {
           onDragStart(event, task.id);
@@ -192,6 +214,32 @@ export function TaskCard({
         </form>
       ) : null}
 
+      {isConfirmingDelete ? (
+        <div className={styles.deleteConfirmation} role="alertdialog">
+          <p>Delete this task? This action cannot be undone.</p>
+          <div className={styles.deleteActions}>
+            <button type="button" disabled={isDeleting} onClick={handleDelete}>
+              {isDeleting ? "Deleting…" : "Delete task"}
+            </button>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={() => {
+                setIsConfirmingDelete(false);
+                setDeleteError(undefined);
+              }}
+            >
+              Keep task
+            </button>
+          </div>
+          {deleteError ? (
+            <p className={styles.error} role="alert">
+              {deleteError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <p className={styles.assignee}>
         Assigned to <strong>{task.assignee}</strong>
       </p>
@@ -228,6 +276,19 @@ export function TaskCard({
           );
         })}
       </div>
+
+      <button
+        type="button"
+        className={styles.deleteButton}
+        disabled={isPending || isSaving || isDeleting}
+        onClick={() => {
+          setIsEditing(false);
+          setDeleteError(undefined);
+          setIsConfirmingDelete(current => !current);
+        }}
+      >
+        {isConfirmingDelete ? "Close deletion" : "Delete"}
+      </button>
 
       {error && (
         <p id={errorMessageId} className={styles.error} role="alert">

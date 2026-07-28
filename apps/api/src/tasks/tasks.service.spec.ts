@@ -163,6 +163,37 @@ describe('TasksService', () => {
     expect(updateMany).not.toHaveBeenCalled();
   });
 
+  it('deletes a task and closes the position gap', async () => {
+    jest
+      .spyOn(prisma.task, 'findFirst')
+      .mockResolvedValue(createTask({ position: 1, version: 3 }));
+    const deleteMany = jest
+      .spyOn(prisma.task, 'deleteMany')
+      .mockResolvedValue({ count: 1 });
+    jest
+      .spyOn(prisma.task, 'findMany')
+      .mockResolvedValue([
+        createTask({ id: 'task-2', position: 2 }),
+        createTask({ id: 'task-3', position: 3 }),
+      ]);
+    const update = jest
+      .spyOn(prisma.task, 'update')
+      .mockResolvedValue(createTask());
+    jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementation(async (callback) => callback(prisma));
+
+    await service.deleteTask('user-1', 'task-1', { expectedVersion: 3 });
+
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: { id: 'task-1', version: 3 },
+    });
+    expect(update.mock.calls.map(([query]) => query)).toEqual([
+      { where: { id: 'task-2' }, data: { position: 1 } },
+      { where: { id: 'task-3' }, data: { position: 2 } },
+    ]);
+  });
+
   it('rejects a missing task', async () => {
     const findFirst = jest
       .spyOn(prisma.task, 'findFirst')

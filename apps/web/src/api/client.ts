@@ -14,7 +14,9 @@ export async function apiRequest(
   const response = await fetch(`${apiUrl}${path}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...(init?.body !== undefined
+        ? { "Content-Type": "application/json" }
+        : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
