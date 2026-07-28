@@ -8,13 +8,20 @@ import {
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  const allowedOrigins = (
+    process.env.CLERK_AUTHORIZED_PARTIES ?? 'http://localhost:5173'
+  )
+    .split(',')
+    .map((origin) => origin.trim());
+  const port = Number(process.env.PORT ?? 3000);
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),
   );
 
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -28,7 +35,7 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(3000, '0.0.0.0');
+  await app.listen(port, '0.0.0.0');
 }
 
 void bootstrap();
