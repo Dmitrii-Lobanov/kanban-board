@@ -6,6 +6,6 @@ import { UserOnboardingService } from './user-onboarding.service';
 @Global()
 @Module({
   providers: [ClerkAuthGuard, UserOnboardingService],
-  exports: [ClerkAuthGuard],
+  exports: [ClerkAuthGuard, UserOnboardingService],
 })
 export class AuthModule {}
