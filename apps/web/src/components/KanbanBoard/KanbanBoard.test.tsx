@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardResponse, TaskResponse } from "@kanban-board/contracts";
 import { ApiError } from "../../api/api-error";
 import { getBoards } from "../../api/boards";
-import { moveTask } from "../../api/tasks";
+import { createTask, moveTask } from "../../api/tasks";
 import { KanbanBoard } from "./KanbanBoard";
 
 vi.mock("@clerk/react", () => ({
@@ -24,6 +24,7 @@ vi.mock("@clerk/react", () => ({
 }));
 
 vi.mock("../../api/tasks", () => ({
+  createTask: vi.fn(),
   moveTask: vi.fn(),
 }));
 
@@ -99,6 +100,7 @@ const initialBoards: BoardResponse[] = [
 ];
 
 const mockedGetBoards = vi.mocked(getBoards);
+const mockedCreateTask = vi.mocked(createTask);
 const mockedMoveTask = vi.mocked(moveTask);
 const optimisticTaskTitle = "Model optimistic task state";
 const draggableTaskTitle = "Build native drag-and-drop";
@@ -203,7 +205,47 @@ describe("KanbanBoard", () => {
   beforeEach(() => {
     mockedGetBoards.mockReset();
     mockedGetBoards.mockResolvedValue(initialBoards);
+    mockedCreateTask.mockReset();
     mockedMoveTask.mockReset();
+  });
+
+  it("creates a task in the selected column", async () => {
+    mockedCreateTask.mockResolvedValueOnce({
+      id: "task-new",
+      title: "Ship portfolio",
+      description: null,
+      priority: "MEDIUM",
+      position: 0,
+      version: 1,
+      columnId: "column-done",
+      createdAt: "2026-07-28T12:00:00.000Z",
+      updatedAt: "2026-07-28T12:00:00.000Z",
+    });
+    const user = userEvent.setup();
+
+    await renderBoard();
+
+    const doneColumn = getColumn("Done");
+    await user.click(
+      within(doneColumn).getByRole("button", { name: "Add task to Done" })
+    );
+    await user.type(
+      within(doneColumn).getByLabelText("Task title"),
+      "Ship portfolio"
+    );
+    await user.click(
+      within(doneColumn).getByRole("button", { name: "Add task" })
+    );
+
+    await waitFor(() => {
+      expect(mockedCreateTask).toHaveBeenCalledWith(
+        {
+          title: "Ship portfolio",
+          columnId: "column-done",
+        },
+        "test-token"
+      );
+    });
   });
 
   it("moves a task optimistically before the API request completes", async () => {

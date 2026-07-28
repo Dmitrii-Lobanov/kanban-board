@@ -1,4 +1,4 @@
-import { type DragEvent, useState } from "react";
+import { type DragEvent, type FormEvent, useState } from "react";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
 import { TaskCard } from "../TaskCard";
 import styles from "./KanbanBoardColumn.module.css";
@@ -10,6 +10,7 @@ interface KanbanBoardColumnProps {
   appendPosition: number;
   pendingTaskIds: ReadonlySet<string>;
   taskErrors: Record<string, string | undefined>;
+  onCreateTask: (title: string) => Promise<void>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
   onDropTask: (
@@ -26,11 +27,16 @@ export function KanbanBoardColumn({
   appendPosition,
   pendingTaskIds,
   taskErrors,
+  onCreateTask,
   onStatusChange,
   onDragStart,
   onDropTask,
 }: KanbanBoardColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [createError, setCreateError] = useState<string>();
+  const [isCreating, setIsCreating] = useState(false);
 
   const headingId = `column-${status}`;
 
@@ -59,6 +65,29 @@ export function KanbanBoardColumn({
     onDropTask(event, status, appendPosition);
   };
 
+  const handleCreateTask = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const title = newTaskTitle.trim();
+
+    if (!title) {
+      setCreateError("Enter a task title.");
+      return;
+    }
+
+    setCreateError(undefined);
+    setIsCreating(true);
+
+    try {
+      await onCreateTask(title);
+      setNewTaskTitle("");
+      setIsAddingTask(false);
+    } catch {
+      setCreateError("Unable to create the task. Please try again.");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <section
       className={`${styles.column} ${isDragOver ? styles.dragOver : ""}`}
@@ -72,10 +101,61 @@ export function KanbanBoardColumn({
           {title}
         </h2>
 
-        <span className={styles.count} aria-label={`${tasks.length} tasks`}>
-          {tasks.length}
-        </span>
+        <div className={styles.headerActions}>
+          <span className={styles.count} aria-label={`${tasks.length} tasks`}>
+            {tasks.length}
+          </span>
+          <button
+            type="button"
+            className={styles.addButton}
+            aria-label={`Add task to ${title}`}
+            onClick={() => {
+              setCreateError(undefined);
+              setIsAddingTask(current => !current);
+            }}
+          >
+            +
+          </button>
+        </div>
       </header>
+
+      {isAddingTask ? (
+        <form className={styles.createForm} onSubmit={handleCreateTask}>
+          <label className={styles.createLabel} htmlFor={`${headingId}-title`}>
+            Task title
+          </label>
+          <input
+            id={`${headingId}-title`}
+            className={styles.createInput}
+            value={newTaskTitle}
+            maxLength={200}
+            autoFocus
+            disabled={isCreating}
+            onChange={event => setNewTaskTitle(event.target.value)}
+          />
+          <div className={styles.createActions}>
+            <button type="submit" disabled={isCreating}>
+              {isCreating ? "Adding…" : "Add task"}
+            </button>
+            <button
+              type="button"
+              disabled={isCreating}
+              onClick={() => {
+                setIsAddingTask(false);
+                setNewTaskTitle("");
+                setCreateError(undefined);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          {createError ? (
+            <p className={styles.createError} role="alert">
+              {createError}
+            </p>
+          ) : null}
+        </form>
+      ) : null}
 
       <div className={styles.tasks}>
         {tasks.length > 0 ? (

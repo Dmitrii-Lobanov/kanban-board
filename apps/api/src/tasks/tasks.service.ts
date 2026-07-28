@@ -3,13 +3,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { WorkspaceRole, type Prisma } from '@prisma/client';
+import {
+  Prisma,
+  TaskPriority,
+  WorkspaceRole,
+  type Prisma as PrismaTypes,
+} from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { mapTaskResponse } from '../boards/board-response.mapper';
+import { CreateTaskDto } from './dto/create-task.dto';
 import { MoveTaskDto } from './dto/move-task.dto';
 
-type TransactionClient = Prisma.TransactionClient;
+type TransactionClient = PrismaTypes.TransactionClient;
 
 type TaskPositionSnapshot = {
   id: string;
@@ -21,6 +27,70 @@ type TaskPositionSnapshot = {
 @Injectable()
 export class TasksService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async createTask(userId: string, dto: CreateTaskDto) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const task = await this.prisma.$transaction(
+          async (transaction) => {
+            const column = await transaction.column.findFirst({
+              where: {
+                id: dto.columnId,
+                board: {
+                  workspace: {
+                    members: {
+                      some: {
+                        userId,
+                        role: {
+                          in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              select: { id: true },
+            });
+
+            if (!column) {
+              throw new NotFoundException('Column not found.');
+            }
+
+            const position = await transaction.task.count({
+              where: { columnId: column.id },
+            });
+
+            return transaction.task.create({
+              data: {
+                title: dto.title.trim(),
+                description: dto.description?.trim() || null,
+                priority: dto.priority ?? TaskPriority.MEDIUM,
+                columnId: column.id,
+                position,
+              },
+            });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+
+        return mapTaskResponse(task);
+      } catch (error) {
+        if (this.isRetryableCreateConflict(error)) {
+          if (attempt < 2) {
+            continue;
+          }
+
+          throw new ConflictException(
+            'Unable to create task. Please try again.',
+          );
+        }
+
+        throw error;
+      }
+    }
+
+    throw new ConflictException('Unable to create task. Please try again.');
+  }
 
   async moveTask(userId: string, taskId: string, dto: MoveTaskDto) {
     const task = await this.prisma.task.findFirst({
@@ -264,5 +334,12 @@ export class TasksService {
         },
       });
     }
+  }
+
+  private isRetryableCreateConflict(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === 'P2002' || error.code === 'P2034')
+    );
   }
 }

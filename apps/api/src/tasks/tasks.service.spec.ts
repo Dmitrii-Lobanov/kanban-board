@@ -56,6 +56,59 @@ describe('TasksService', () => {
     jest.restoreAllMocks();
   });
 
+  it('creates a task at the end of an authorized column', async () => {
+    const createdTask = createTask({
+      title: 'New task',
+      position: 2,
+      version: 1,
+      columnId: 'column-destination',
+    });
+    const findColumn = jest
+      .spyOn(prisma.column, 'findFirst')
+      .mockResolvedValue(createColumn());
+    jest.spyOn(prisma.task, 'count').mockResolvedValue(2);
+    const create = jest
+      .spyOn(prisma.task, 'create')
+      .mockResolvedValue(createdTask);
+    jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementation(async (callback) => callback(prisma));
+
+    const response = await service.createTask('user-1', {
+      title: '  New task  ',
+      columnId: 'column-destination',
+    });
+
+    expect(findColumn).toHaveBeenCalledTimes(1);
+    expect(findColumn.mock.calls[0]?.[0].where.id).toBe('column-destination');
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        title: 'New task',
+        description: null,
+        priority: TaskPriority.MEDIUM,
+        columnId: 'column-destination',
+        position: 2,
+      },
+    });
+    expect(response).toMatchObject({ title: 'New task', position: 2 });
+  });
+
+  it('does not create a task in an unauthorized column', async () => {
+    jest.spyOn(prisma.column, 'findFirst').mockResolvedValue(null);
+    const create = jest.spyOn(prisma.task, 'create');
+    jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementation(async (callback) => callback(prisma));
+
+    await expect(
+      service.createTask('user-1', {
+        title: 'New task',
+        columnId: 'private-column',
+      }),
+    ).rejects.toThrow(new NotFoundException('Column not found.'));
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('rejects a missing task', async () => {
     const findFirst = jest
       .spyOn(prisma.task, 'findFirst')

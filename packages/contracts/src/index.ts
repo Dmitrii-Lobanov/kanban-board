@@ -20,6 +20,13 @@ export type MoveTaskRequest = {
   expectedVersion: number;
 };
 
+export type CreateTaskRequest = {
+  title: string;
+  columnId: string;
+  description?: string;
+  priority?: "LOW" | "MEDIUM" | "HIGH";
+};
+
 export type ColumnResponse = {
   id: string;
   title: string;

@@ -6,6 +6,7 @@ import {
   groupTasksByStatus,
 } from "../../domain/taskUtils";
 import { useBoards } from "../../features/boards/hooks/useBoards";
+import { useCreateTaskMutation } from "../../hooks/useCreateTaskMutation";
 import { useTaskStatusMutation } from "../../hooks/useTaskStatusMutation";
 import { KanbanBoardColumn } from "../KanbanBoardColumn";
 import { TaskFilters } from "../TaskFilters";
@@ -39,6 +40,7 @@ interface BoardContentProps {
 }
 
 function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
+  const createTaskMutation = useCreateTaskMutation();
   const { tasks, pendingTaskIds, taskErrors, changeTaskStatus } =
     useTaskStatusMutation(initialTasks, columnIdsByStatus);
 
@@ -119,6 +121,12 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
             }
             pendingTaskIds={pendingTaskIds}
             taskErrors={taskErrors}
+            onCreateTask={async title => {
+              await createTaskMutation.mutateAsync({
+                title,
+                columnId: columnIdsByStatus[column.status],
+              });
+            }}
             onStatusChange={changeTaskStatus}
             onDragStart={handleDragStart}
             onDropTask={handleDropTask}
