@@ -81,15 +81,47 @@
 }
 
 .addButton {
+  position: relative;
+  display: inline-grid;
   width: 1.75rem;
   height: 1.75rem;
+  place-items: center;
+  padding: 0;
   border: 1px solid #c7d2fe;
   border-radius: 999px;
   color: #4338ca;
   background: #eef2ff;
   cursor: pointer;
-  font-size: 1.1rem;
-  line-height: 1;
+}
+
+.addIcon,
+.addIcon::after {
+  display: block;
+  width: 0.75rem;
+  height: 0.125rem;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
+.addIcon {
+  position: relative;
+}
+
+.addIcon::after {
+  position: absolute;
+  inset: 0;
+  transform: rotate(90deg);
+}
+
+.addButton:hover {
+  border-color: #a5b4fc;
+  background: #e0e7ff;
+}
+
+.addButton:focus-visible {
+  outline: 3px solid rgb(99 102 241 / 18%);
+  outline-offset: 2px;
 }
 
 .createForm {

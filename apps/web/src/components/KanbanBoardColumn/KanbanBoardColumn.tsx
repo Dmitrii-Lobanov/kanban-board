@@ -114,7 +114,7 @@ export function KanbanBoardColumn({
               setIsAddingTask(current => !current);
             }}
           >
-            +
+            <span className={styles.addIcon} aria-hidden="true" />
           </button>
         </div>
       </header>

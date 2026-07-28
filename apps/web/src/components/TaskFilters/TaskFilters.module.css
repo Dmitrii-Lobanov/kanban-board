@@ -39,6 +39,32 @@
     box-shadow 150ms ease;
 }
 
+.selectControl {
+  position: relative;
+  display: block;
+}
+
+.selectControl select {
+  padding-right: 2.75rem;
+  appearance: none;
+  cursor: pointer;
+}
+
+.selectChevron {
+  position: absolute;
+  top: 50%;
+  right: 0.9rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  pointer-events: none;
+  transform: translateY(-50%);
+  fill: none;
+  stroke: #667085;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+}
+
 .field input::placeholder {
   color: #98a2b3;
 }
