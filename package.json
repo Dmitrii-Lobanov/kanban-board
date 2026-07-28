@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "build": "npm run build --workspaces --if-present",
     "dev:web": "npm run dev --workspace @kanban-board/web",
     "build:web": "npm run build --workspace @kanban-board/web",
     "lint": "npm run lint --workspaces --if-present",
@@ -15,6 +16,7 @@
     "format:check": "prettier . --check",
     "test": "npm run test --workspaces --if-present",
     "test:run": "npm run test:run --workspaces --if-present",
+    "test:integration": "npm run test:integration --workspace @kanban-board/api",
     "check": "npm run format:check && npm run lint && npm run test:run && npm run build:web"
   },
   "devDependencies": {

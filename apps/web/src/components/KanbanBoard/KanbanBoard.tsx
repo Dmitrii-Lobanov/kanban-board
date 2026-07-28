@@ -1,12 +1,12 @@
 import { type DragEvent, useMemo, useState } from "react";
+import type { WorkspaceMemberResponse } from "@kanban-board/contracts";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
-import {
-  filterTasks,
-  getAssignees,
-  groupTasksByStatus,
-} from "../../domain/taskUtils";
+import { filterTasks, groupTasksByStatus } from "../../domain/taskUtils";
 import { useBoards } from "../../features/boards/hooks/useBoards";
+import { useCreateTaskMutation } from "../../hooks/useCreateTaskMutation";
+import { useDeleteTaskMutation } from "../../hooks/useDeleteTaskMutation";
 import { useTaskStatusMutation } from "../../hooks/useTaskStatusMutation";
+import { useUpdateTaskMutation } from "../../hooks/useUpdateTaskMutation";
 import { KanbanBoardColumn } from "../KanbanBoardColumn";
 import { TaskFilters } from "../TaskFilters";
 import styles from "./KanbanBoard.module.css";
@@ -36,16 +36,35 @@ const columns: ColumnConfiguration[] = [
 interface BoardContentProps {
   initialTasks: PersistedTask[];
   columnIdsByStatus: Record<TaskStatus, string>;
+  members: WorkspaceMemberResponse[];
 }
 
-function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
+function BoardContent({
+  initialTasks,
+  columnIdsByStatus,
+  members,
+}: BoardContentProps) {
+  const createTaskMutation = useCreateTaskMutation();
+  const deleteTaskMutation = useDeleteTaskMutation();
+  const updateTaskMutation = useUpdateTaskMutation();
   const { tasks, pendingTaskIds, taskErrors, changeTaskStatus } =
     useTaskStatusMutation(initialTasks, columnIdsByStatus);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
 
-  const assignees = useMemo(() => getAssignees(tasks), [tasks]);
+  const assignees = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          "Unassigned",
+          ...members.map(
+            member => member.displayName ?? member.email ?? "Workspace member"
+          ),
+        ])
+      ).sort(),
+    [members]
+  );
 
   const visibleTasks = useMemo(
     () =>
@@ -56,10 +75,15 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
     [tasks, searchQuery, assigneeFilter]
   );
 
-  const tasksByStatus = useMemo(
-    () => groupTasksByStatus(visibleTasks),
-    [visibleTasks]
-  );
+  const tasksByStatus = useMemo(() => {
+    const groups = groupTasksByStatus(visibleTasks);
+
+    for (const groupedTasks of Object.values(groups)) {
+      groupedTasks.sort((first, second) => first.position - second.position);
+    }
+
+    return groups;
+  }, [visibleTasks]);
 
   const handleDragStart = (event: DragEvent<HTMLElement>, taskId: string) => {
     event.dataTransfer.effectAllowed = "move";
@@ -69,7 +93,8 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
 
   const handleDropTask = (
     event: DragEvent<HTMLElement>,
-    destinationStatus: TaskStatus
+    destinationStatus: TaskStatus,
+    destinationPosition: number
   ) => {
     event.preventDefault();
 
@@ -81,7 +106,14 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
       return;
     }
 
-    changeTaskStatus(taskId, destinationStatus);
+    const sourceTask = tasks.find(task => task.id === taskId);
+    const adjustedPosition =
+      sourceTask?.status === destinationStatus &&
+      sourceTask.position < destinationPosition
+        ? destinationPosition - 1
+        : destinationPosition;
+
+    changeTaskStatus(taskId, destinationStatus, adjustedPosition);
   };
 
   return (
@@ -101,8 +133,27 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
             title={column.title}
             status={column.status}
             tasks={tasksByStatus[column.status]}
+            appendPosition={
+              tasks.filter(task => task.status === column.status).length
+            }
             pendingTaskIds={pendingTaskIds}
             taskErrors={taskErrors}
+            members={members}
+            onCreateTask={async request => {
+              await createTaskMutation.mutateAsync({
+                ...request,
+                columnId: columnIdsByStatus[column.status],
+              });
+            }}
+            onDeleteTask={async (taskId, expectedVersion) => {
+              await deleteTaskMutation.mutateAsync({
+                taskId,
+                request: { expectedVersion },
+              });
+            }}
+            onUpdateTask={async (taskId, request) => {
+              await updateTaskMutation.mutateAsync({ taskId, request });
+            }}
             onStatusChange={changeTaskStatus}
             onDragStart={handleDragStart}
             onDropTask={handleDropTask}
@@ -134,7 +185,11 @@ export function KanbanBoard() {
     column.tasks.map(task => ({
       id: task.id,
       title: task.title,
-      assignee: "Unassigned",
+      assignee:
+        task.assignee?.displayName ?? task.assignee?.email ?? "Unassigned",
+      assigneeId: task.assignee?.id ?? null,
+      description: task.description,
+      priority: task.priority,
       status: column.key,
       columnId: task.columnId,
       position: task.position,
@@ -174,6 +229,7 @@ export function KanbanBoard() {
       <BoardContent
         initialTasks={initialTasks}
         columnIdsByStatus={columnIdsByStatus}
+        members={board.members}
       />
     </main>
   );

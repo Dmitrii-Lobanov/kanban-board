@@ -1,5 +1,10 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { ColumnKey, TaskPriority, type Prisma } from '@prisma/client';
+import {
+  ColumnKey,
+  TaskPriority,
+  WorkspaceRole,
+  type Prisma,
+} from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { TasksService } from './tasks.service';
@@ -51,26 +56,197 @@ describe('TasksService', () => {
     jest.restoreAllMocks();
   });
 
-  it('rejects a missing task', async () => {
-    jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(null);
+  it('creates a task at the end of an authorized column', async () => {
+    const createdTask = createTask({
+      title: 'New task',
+      position: 2,
+      version: 1,
+      columnId: 'column-destination',
+    });
+    const findColumn = jest
+      .spyOn(prisma.column, 'findFirst')
+      .mockResolvedValue({
+        id: 'column-destination',
+        board: { workspaceId: 'workspace-1' },
+      });
+    jest.spyOn(prisma.task, 'count').mockResolvedValue(2);
+    const create = jest
+      .spyOn(prisma.task, 'create')
+      .mockResolvedValue(createdTask);
+    jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementation(async (callback) => callback(prisma));
+
+    const response = await service.createTask('user-1', {
+      title: '  New task  ',
+      columnId: 'column-destination',
+    });
+
+    expect(findColumn).toHaveBeenCalledTimes(1);
+    expect(findColumn.mock.calls[0]?.[0].where.id).toBe('column-destination');
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        title: 'New task',
+        description: null,
+        priority: TaskPriority.MEDIUM,
+        columnId: 'column-destination',
+        position: 2,
+        assigneeId: null,
+      },
+      include: { assignee: true },
+    });
+    expect(response).toMatchObject({ title: 'New task', position: 2 });
+  });
+
+  it('does not create a task in an unauthorized column', async () => {
+    jest.spyOn(prisma.column, 'findFirst').mockResolvedValue(null);
+    const create = jest.spyOn(prisma.task, 'create');
+    jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementation(async (callback) => callback(prisma));
 
     await expect(
-      service.moveTask('missing-task', {
+      service.createTask('user-1', {
+        title: 'New task',
+        columnId: 'private-column',
+      }),
+    ).rejects.toThrow(new NotFoundException('Column not found.'));
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('updates task details with an atomic version claim', async () => {
+    jest.spyOn(prisma.task, 'findFirst').mockResolvedValue({
+      id: 'task-1',
+      version: 3,
+      column: { board: { workspaceId: 'workspace-1' } },
+    });
+    const updateMany = jest
+      .spyOn(prisma.task, 'updateMany')
+      .mockResolvedValue({ count: 1 });
+    jest.spyOn(prisma.task, 'findUniqueOrThrow').mockResolvedValue(
+      createTask({
+        title: 'Updated task',
+        description: 'Updated description',
+        priority: TaskPriority.HIGH,
+        version: 4,
+      }),
+    );
+
+    const response = await service.updateTask('user-1', 'task-1', {
+      title: ' Updated task ',
+      description: ' Updated description ',
+      priority: TaskPriority.HIGH,
+      expectedVersion: 3,
+    });
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'task-1', version: 3 },
+      data: {
+        title: 'Updated task',
+        description: 'Updated description',
+        priority: TaskPriority.HIGH,
+        version: { increment: 1 },
+        assigneeId: null,
+      },
+    });
+    expect(response).toMatchObject({ title: 'Updated task', version: 4 });
+  });
+
+  it('rejects editing a stale task version', async () => {
+    jest.spyOn(prisma.task, 'findFirst').mockResolvedValue({
+      id: 'task-1',
+      version: 4,
+      column: { board: { workspaceId: 'workspace-1' } },
+    });
+    const updateMany = jest.spyOn(prisma.task, 'updateMany');
+
+    await expect(
+      service.updateTask('user-1', 'task-1', {
+        title: 'Updated task',
+        description: null,
+        priority: TaskPriority.MEDIUM,
+        expectedVersion: 3,
+      }),
+    ).rejects.toThrow(
+      new ConflictException('Task has been modified by another client.'),
+    );
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('deletes a task and closes the position gap', async () => {
+    jest
+      .spyOn(prisma.task, 'findFirst')
+      .mockResolvedValue(createTask({ position: 1, version: 3 }));
+    const deleteMany = jest
+      .spyOn(prisma.task, 'deleteMany')
+      .mockResolvedValue({ count: 1 });
+    jest
+      .spyOn(prisma.task, 'findMany')
+      .mockResolvedValue([
+        createTask({ id: 'task-2', position: 2 }),
+        createTask({ id: 'task-3', position: 3 }),
+      ]);
+    const update = jest
+      .spyOn(prisma.task, 'update')
+      .mockResolvedValue(createTask());
+    jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementation(async (callback) => callback(prisma));
+
+    await service.deleteTask('user-1', 'task-1', { expectedVersion: 3 });
+
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: { id: 'task-1', version: 3 },
+    });
+    expect(update.mock.calls.map(([query]) => query)).toEqual([
+      { where: { id: 'task-2' }, data: { position: 1 } },
+      { where: { id: 'task-3' }, data: { position: 2 } },
+    ]);
+  });
+
+  it('rejects a missing task', async () => {
+    const findFirst = jest
+      .spyOn(prisma.task, 'findFirst')
+      .mockResolvedValue(null);
+
+    await expect(
+      service.moveTask('user-1', 'missing-task', {
         columnId: 'column-destination',
         position: 0,
         expectedVersion: 1,
       }),
     ).rejects.toThrow(new NotFoundException('Task not found.'));
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: 'missing-task',
+          column: {
+            board: {
+              workspace: {
+                members: {
+                  some: {
+                    userId: 'user-1',
+                    role: {
+                      in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
   });
 
   it('rejects a stale task version before starting a transaction', async () => {
     jest
-      .spyOn(prisma.task, 'findUnique')
+      .spyOn(prisma.task, 'findFirst')
       .mockResolvedValue(createTask({ position: 0, version: 4 }));
     const transaction = jest.spyOn(prisma, '$transaction');
 
     await expect(
-      service.moveTask('task-1', {
+      service.moveTask('user-1', 'task-1', {
         columnId: 'column-destination',
         position: 0,
         expectedVersion: 3,
@@ -83,17 +259,49 @@ describe('TasksService', () => {
 
   it('rejects a missing destination column', async () => {
     jest
-      .spyOn(prisma.task, 'findUnique')
+      .spyOn(prisma.task, 'findFirst')
       .mockResolvedValue(createTask({ position: 0, version: 1 }));
-    jest.spyOn(prisma.column, 'findUnique').mockResolvedValue(null);
+    const findDestination = jest
+      .spyOn(prisma.column, 'findFirst')
+      .mockResolvedValue(null);
 
     await expect(
-      service.moveTask('task-1', {
+      service.moveTask('user-1', 'task-1', {
         columnId: 'missing-column',
         position: 0,
         expectedVersion: 1,
       }),
     ).rejects.toThrow(new NotFoundException('Destination column not found.'));
+    expect(findDestination).toHaveBeenCalledWith({
+      where: {
+        id: 'missing-column',
+        board: {
+          columns: {
+            some: { id: 'column-source' },
+          },
+        },
+      },
+      select: { id: true },
+    });
+  });
+
+  it('rejects a version changed after the initial read', async () => {
+    jest.spyOn(prisma.task, 'findFirst').mockResolvedValue(createTask());
+    jest.spyOn(prisma.column, 'findFirst').mockResolvedValue(createColumn());
+    jest.spyOn(prisma.task, 'updateMany').mockResolvedValue({ count: 0 });
+    jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementation(async (callback) => callback(prisma));
+
+    await expect(
+      service.moveTask('user-1', 'task-1', {
+        columnId: 'column-destination',
+        position: 1,
+        expectedVersion: 3,
+      }),
+    ).rejects.toThrow(
+      new ConflictException('Task has been modified by another client.'),
+    );
   });
 
   it('moves across columns in collision-safe order', async () => {
@@ -106,8 +314,11 @@ describe('TasksService', () => {
       .spyOn(prisma.task, 'update')
       .mockResolvedValue(movedTask);
 
-    jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(createTask());
-    jest.spyOn(prisma.column, 'findUnique').mockResolvedValue(createColumn());
+    jest.spyOn(prisma.task, 'findFirst').mockResolvedValue(createTask());
+    jest.spyOn(prisma.column, 'findFirst').mockResolvedValue(createColumn());
+    const updateMany = jest
+      .spyOn(prisma.task, 'updateMany')
+      .mockResolvedValue({ count: 1 });
     jest.spyOn(prisma.task, 'count').mockResolvedValue(2);
     jest
       .spyOn(prisma.task, 'findMany')
@@ -125,14 +336,13 @@ describe('TasksService', () => {
       .spyOn(prisma, '$transaction')
       .mockImplementation(async (callback) => callback(prisma));
 
-    const response = await service.moveTask('task-1', {
+    const response = await service.moveTask('user-1', 'task-1', {
       columnId: 'column-destination',
       position: 1,
       expectedVersion: 3,
     });
 
     expect(update.mock.calls.map(([argument]) => argument)).toEqual([
-      { where: { id: 'task-1' }, data: { position: -2 } },
       { where: { id: 'source-2' }, data: { position: 1 } },
       { where: { id: 'source-3' }, data: { position: 2 } },
       { where: { id: 'destination-1' }, data: { position: 2 } },
@@ -141,10 +351,14 @@ describe('TasksService', () => {
         data: {
           columnId: 'column-destination',
           position: 1,
-          version: { increment: 1 },
         },
+        include: { assignee: true },
       },
     ]);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'task-1', version: 3 },
+      data: { position: -2, version: { increment: 1 } },
+    });
     expect(response).toMatchObject({
       id: 'task-1',
       columnId: 'column-destination',
@@ -160,14 +374,17 @@ describe('TasksService', () => {
       .mockResolvedValue(movedTask);
 
     jest
-      .spyOn(prisma.task, 'findUnique')
+      .spyOn(prisma.task, 'findFirst')
       .mockResolvedValue(createTask({ position: 2 }));
     jest
-      .spyOn(prisma.column, 'findUnique')
+      .spyOn(prisma.column, 'findFirst')
       .mockResolvedValue(
         createColumn({ id: 'column-source', key: ColumnKey.TODO }),
       );
     jest.spyOn(prisma.task, 'count').mockResolvedValue(2);
+    const updateMany = jest
+      .spyOn(prisma.task, 'updateMany')
+      .mockResolvedValue({ count: 1 });
     jest
       .spyOn(prisma.task, 'findMany')
       .mockResolvedValue([
@@ -178,14 +395,13 @@ describe('TasksService', () => {
       .spyOn(prisma, '$transaction')
       .mockImplementation(async (callback) => callback(prisma));
 
-    await service.moveTask('task-1', {
+    await service.moveTask('user-1', 'task-1', {
       columnId: 'column-source',
       position: 0,
       expectedVersion: 3,
     });
 
     expect(update.mock.calls.map(([argument]) => argument)).toEqual([
-      { where: { id: 'task-1' }, data: { position: -3 } },
       { where: { id: 'task-at-1' }, data: { position: 2 } },
       { where: { id: 'task-at-0' }, data: { position: 1 } },
       {
@@ -193,9 +409,13 @@ describe('TasksService', () => {
         data: {
           columnId: 'column-source',
           position: 0,
-          version: { increment: 1 },
         },
+        include: { assignee: true },
       },
     ]);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'task-1', version: 3 },
+      data: { position: -3, version: { increment: 1 } },
+    });
   });
 });

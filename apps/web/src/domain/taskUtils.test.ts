@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Task } from "./task";
+import type { PersistedTask, Task } from "./task";
 import {
   filterTasks,
   getAssignees,
   groupTasksByStatus,
+  movePersistedTask,
   replaceTaskStatus,
 } from "./taskUtils";
 
@@ -27,6 +28,78 @@ const tasks: Task[] = [
     status: "done",
   },
 ];
+
+const persistedTasks: PersistedTask[] = [
+  {
+    ...tasks[0],
+    description: null,
+    assigneeId: null,
+    priority: "MEDIUM",
+    columnId: "column-todo",
+    position: 0,
+    version: 1,
+  },
+  {
+    ...tasks[1],
+    description: null,
+    assigneeId: null,
+    priority: "HIGH",
+    id: "task-2",
+    columnId: "column-progress",
+    position: 0,
+    version: 1,
+  },
+  {
+    ...tasks[1],
+    description: null,
+    assigneeId: null,
+    priority: "LOW",
+    id: "task-3",
+    title: "Review drag-and-drop",
+    columnId: "column-progress",
+    position: 1,
+    version: 1,
+  },
+];
+
+describe("movePersistedTask", () => {
+  it("inserts a task at an exact cross-column position", () => {
+    const result = movePersistedTask(
+      persistedTasks,
+      "task-1",
+      "in-progress",
+      "column-progress",
+      1
+    );
+    const progressTasks = result
+      .filter(task => task.status === "in-progress")
+      .sort((first, second) => first.position - second.position);
+
+    expect(progressTasks.map(task => [task.id, task.position])).toEqual([
+      ["task-2", 0],
+      ["task-1", 1],
+      ["task-3", 2],
+    ]);
+  });
+
+  it("normalizes positions after a within-column move", () => {
+    const result = movePersistedTask(
+      persistedTasks,
+      "task-3",
+      "in-progress",
+      "column-progress",
+      0
+    );
+    const progressTasks = result
+      .filter(task => task.status === "in-progress")
+      .sort((first, second) => first.position - second.position);
+
+    expect(progressTasks.map(task => [task.id, task.position])).toEqual([
+      ["task-3", 0],
+      ["task-2", 1],
+    ]);
+  });
+});
 
 describe("replaceTaskStatus", () => {
   it("updates only the matching task", () => {

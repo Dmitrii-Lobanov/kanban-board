@@ -1,4 +1,9 @@
-import type { Task, TaskStatus } from "./task";
+import {
+  TASK_STATUSES,
+  type PersistedTask,
+  type Task,
+  type TaskStatus,
+} from "./task";
 
 export interface TaskFilters {
   searchQuery: string;
@@ -20,7 +25,67 @@ export function replaceTaskStatus<T extends Task>(
   );
 }
 
-export function filterTasks(tasks: Task[], filters: TaskFilters): Task[] {
+export function movePersistedTask(
+  tasks: PersistedTask[],
+  taskId: string,
+  destinationStatus: TaskStatus,
+  destinationColumnId: string,
+  destinationPosition: number
+): PersistedTask[] {
+  const movingTask = tasks.find(task => task.id === taskId);
+
+  if (!movingTask) {
+    return tasks;
+  }
+
+  const tasksByStatus = tasks.reduce<Record<TaskStatus, PersistedTask[]>>(
+    (groups, task) => {
+      if (task.id !== taskId) {
+        groups[task.status].push(task);
+      }
+
+      return groups;
+    },
+    { todo: [], "in-progress": [], done: [] }
+  );
+
+  for (const statusTasks of Object.values(tasksByStatus)) {
+    statusTasks.sort((first, second) => first.position - second.position);
+  }
+
+  const destinationTasks = tasksByStatus[destinationStatus];
+  const clampedPosition = Math.min(
+    Math.max(destinationPosition, 0),
+    destinationTasks.length
+  );
+
+  destinationTasks.splice(clampedPosition, 0, {
+    ...movingTask,
+    status: destinationStatus,
+    columnId: destinationColumnId,
+  });
+
+  const updates = new Map<string, PersistedTask>();
+
+  for (const status of TASK_STATUSES) {
+    const statusTasks = tasksByStatus[status];
+
+    statusTasks.forEach((task, position) => {
+      updates.set(task.id, {
+        ...task,
+        status,
+        position,
+      });
+    });
+  }
+
+  return tasks.map(task => updates.get(task.id) ?? task);
+}
+
+export function filterTasks<T extends Task>(
+  tasks: T[],
+  filters: TaskFilters
+): T[] {
   const normalizedQuery = filters.searchQuery.trim().toLowerCase();
 
   return tasks.filter(task => {
@@ -35,8 +100,10 @@ export function filterTasks(tasks: Task[], filters: TaskFilters): Task[] {
   });
 }
 
-export function groupTasksByStatus(tasks: Task[]): Record<TaskStatus, Task[]> {
-  return tasks.reduce<Record<TaskStatus, Task[]>>(
+export function groupTasksByStatus<T extends Task>(
+  tasks: T[]
+): Record<TaskStatus, T[]> {
+  return tasks.reduce<Record<TaskStatus, T[]>>(
     (groups, task) => {
       groups[task.status]?.push(task);
 

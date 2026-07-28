@@ -19,6 +19,7 @@ async function main() {
   const user = await prisma.user.create({
     data: {
       email: 'demo@example.com',
+      displayName: 'Demo User',
       passwordHash: 'demo',
     },
   });
@@ -105,7 +106,7 @@ async function main() {
 }
 
 main()
-  .catch(error => {
+  .catch((error) => {
     console.error(error);
     process.exitCode = 1;
   })

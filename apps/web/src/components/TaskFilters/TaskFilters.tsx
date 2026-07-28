@@ -33,20 +33,29 @@ export function TaskFilters({
       <label className={styles.field}>
         <span className={styles.label}>Assignee</span>
 
-        <select
-          value={assigneeFilter}
-          onChange={event => {
-            onAssigneeFilterChange(event.target.value);
-          }}
-        >
-          <option value="all">All assignees</option>
+        <span className={styles.selectControl}>
+          <select
+            value={assigneeFilter}
+            onChange={event => {
+              onAssigneeFilterChange(event.target.value);
+            }}
+          >
+            <option value="all">All assignees</option>
 
-          {assignees.map(assignee => (
-            <option key={assignee} value={assignee}>
-              {assignee}
-            </option>
-          ))}
-        </select>
+            {assignees.map(assignee => (
+              <option key={assignee} value={assignee}>
+                {assignee}
+              </option>
+            ))}
+          </select>
+          <svg
+            className={styles.selectChevron}
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+          >
+            <path d="m6 8 4 4 4-4" />
+          </svg>
+        </span>
       </label>
     </section>
   );

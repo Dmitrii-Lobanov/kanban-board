@@ -6,12 +6,30 @@ import { mapBoardResponse } from './board-response.mapper';
 export class BoardsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll() {
+  async findAll(userId: string) {
     const boards = await this.prisma.board.findMany({
+      where: {
+        workspace: {
+          members: {
+            some: { userId },
+          },
+        },
+      },
       orderBy: {
         position: 'asc',
       },
       include: {
+        workspace: {
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: { id: true, displayName: true, email: true },
+                },
+              },
+            },
+          },
+        },
         columns: {
           orderBy: {
             position: 'asc',
@@ -20,6 +38,11 @@ export class BoardsService {
             tasks: {
               orderBy: {
                 position: 'asc',
+              },
+              include: {
+                assignee: {
+                  select: { id: true, displayName: true, email: true },
+                },
               },
             },
           },

@@ -3,13 +3,21 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import {
+  Prisma,
+  TaskPriority,
+  WorkspaceRole,
+  type Prisma as PrismaTypes,
+} from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { mapTaskResponse } from '../boards/board-response.mapper';
+import { CreateTaskDto } from './dto/create-task.dto';
+import { DeleteTaskDto } from './dto/delete-task.dto';
 import { MoveTaskDto } from './dto/move-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
 
-type TransactionClient = Prisma.TransactionClient;
+type TransactionClient = PrismaTypes.TransactionClient;
 
 type TaskPositionSnapshot = {
   id: string;
@@ -22,10 +30,228 @@ type TaskPositionSnapshot = {
 export class TasksService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async moveTask(taskId: string, dto: MoveTaskDto) {
-    const task = await this.prisma.task.findUnique({
+  async createTask(userId: string, dto: CreateTaskDto) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const task = await this.prisma.$transaction(
+          async (transaction) => {
+            const column = await transaction.column.findFirst({
+              where: {
+                id: dto.columnId,
+                board: {
+                  workspace: {
+                    members: {
+                      some: {
+                        userId,
+                        role: {
+                          in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER],
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              select: { id: true, board: { select: { workspaceId: true } } },
+            });
+
+            if (!column) {
+              throw new NotFoundException('Column not found.');
+            }
+
+            const position = await transaction.task.count({
+              where: { columnId: column.id },
+            });
+
+            await this.assertWorkspaceAssignee(
+              transaction,
+              dto.assigneeId,
+              column.board.workspaceId,
+            );
+
+            return transaction.task.create({
+              data: {
+                title: dto.title.trim(),
+                description: dto.description?.trim() || null,
+                priority: dto.priority ?? TaskPriority.MEDIUM,
+                columnId: column.id,
+                position,
+                assigneeId: dto.assigneeId ?? null,
+              },
+              include: { assignee: true },
+            });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+
+        return mapTaskResponse(task);
+      } catch (error) {
+        if (this.isRetryableCreateConflict(error)) {
+          if (attempt < 2) {
+            continue;
+          }
+
+          throw new ConflictException(
+            'Unable to create task. Please try again.',
+          );
+        }
+
+        throw error;
+      }
+    }
+
+    throw new ConflictException('Unable to create task. Please try again.');
+  }
+
+  async deleteTask(
+    userId: string,
+    taskId: string,
+    dto: DeleteTaskDto,
+  ): Promise<void> {
+    await this.prisma.$transaction(
+      async (transaction) => {
+        const task = await transaction.task.findFirst({
+          where: {
+            id: taskId,
+            column: {
+              board: {
+                workspace: {
+                  members: {
+                    some: {
+                      userId,
+                      role: {
+                        in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          select: {
+            id: true,
+            columnId: true,
+            position: true,
+            version: true,
+          },
+        });
+
+        if (!task) {
+          throw new NotFoundException('Task not found.');
+        }
+
+        if (task.version !== dto.expectedVersion) {
+          throw new ConflictException(
+            'Task has been modified by another client.',
+          );
+        }
+
+        const deletion = await transaction.task.deleteMany({
+          where: { id: task.id, version: dto.expectedVersion },
+        });
+
+        if (deletion.count !== 1) {
+          throw new ConflictException(
+            'Task has been modified by another client.',
+          );
+        }
+
+        const tasksToShift = await transaction.task.findMany({
+          where: {
+            columnId: task.columnId,
+            position: { gt: task.position },
+          },
+          select: { id: true, position: true },
+          orderBy: { position: 'asc' },
+        });
+
+        for (const taskToShift of tasksToShift) {
+          await transaction.task.update({
+            where: { id: taskToShift.id },
+            data: { position: taskToShift.position - 1 },
+          });
+        }
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  }
+
+  async updateTask(userId: string, taskId: string, dto: UpdateTaskDto) {
+    const task = await this.prisma.task.findFirst({
       where: {
         id: taskId,
+        column: {
+          board: {
+            workspace: {
+              members: {
+                some: {
+                  userId,
+                  role: { in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER] },
+                },
+              },
+            },
+          },
+        },
+      },
+      select: {
+        id: true,
+        version: true,
+        column: { select: { board: { select: { workspaceId: true } } } },
+      },
+    });
+
+    if (!task) {
+      throw new NotFoundException('Task not found.');
+    }
+
+    if (task.version !== dto.expectedVersion) {
+      throw new ConflictException('Task has been modified by another client.');
+    }
+
+    await this.assertWorkspaceAssignee(
+      this.prisma,
+      dto.assigneeId,
+      task.column.board.workspaceId,
+    );
+
+    const update = await this.prisma.task.updateMany({
+      where: { id: task.id, version: dto.expectedVersion },
+      data: {
+        title: dto.title.trim(),
+        description: dto.description?.trim() || null,
+        priority: dto.priority,
+        version: { increment: 1 },
+        assigneeId: dto.assigneeId ?? null,
+      },
+    });
+
+    if (update.count !== 1) {
+      throw new ConflictException('Task has been modified by another client.');
+    }
+
+    const updatedTask = await this.prisma.task.findUniqueOrThrow({
+      where: { id: task.id },
+      include: { assignee: true },
+    });
+
+    return mapTaskResponse(updatedTask);
+  }
+
+  async moveTask(userId: string, taskId: string, dto: MoveTaskDto) {
+    const task = await this.prisma.task.findFirst({
+      where: {
+        id: taskId,
+        column: {
+          board: {
+            workspace: {
+              members: {
+                some: {
+                  userId,
+                  role: { in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER] },
+                },
+              },
+            },
+          },
+        },
       },
       select: {
         id: true,
@@ -43,9 +269,14 @@ export class TasksService {
       throw new ConflictException('Task has been modified by another client.');
     }
 
-    const destinationColumn = await this.prisma.column.findUnique({
+    const destinationColumn = await this.prisma.column.findFirst({
       where: {
         id: dto.columnId,
+        board: {
+          columns: {
+            some: { id: task.columnId },
+          },
+        },
       },
       select: {
         id: true,
@@ -57,6 +288,25 @@ export class TasksService {
     }
 
     const movedTask = await this.prisma.$transaction(async (transaction) => {
+      const versionClaim = await transaction.task.updateMany({
+        where: {
+          id: task.id,
+          version: dto.expectedVersion,
+        },
+        data: {
+          position: -task.position - 1,
+          version: {
+            increment: 1,
+          },
+        },
+      });
+
+      if (versionClaim.count !== 1) {
+        throw new ConflictException(
+          'Task has been modified by another client.',
+        );
+      }
+
       const destinationTaskCount = await transaction.task.count({
         where: {
           columnId: dto.columnId,
@@ -67,15 +317,6 @@ export class TasksService {
       });
 
       const destinationPosition = Math.min(dto.position, destinationTaskCount);
-
-      await transaction.task.update({
-        where: {
-          id: task.id,
-        },
-        data: {
-          position: -task.position - 1,
-        },
-      });
 
       if (task.columnId === dto.columnId) {
         await this.moveWithinColumn(transaction, task, destinationPosition);
@@ -95,10 +336,8 @@ export class TasksService {
         data: {
           columnId: dto.columnId,
           position: destinationPosition,
-          version: {
-            increment: 1,
-          },
         },
+        include: { assignee: true },
       });
     });
 
@@ -239,6 +478,34 @@ export class TasksService {
           position: taskToShift.position + 1,
         },
       });
+    }
+  }
+
+  private isRetryableCreateConflict(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === 'P2002' || error.code === 'P2034')
+    );
+  }
+
+  private async assertWorkspaceAssignee(
+    client: Pick<TransactionClient, 'workspaceMember'>,
+    assigneeId: string | null | undefined,
+    workspaceId: string,
+  ): Promise<void> {
+    if (!assigneeId) {
+      return;
+    }
+
+    const membership = await client.workspaceMember.findUnique({
+      where: {
+        userId_workspaceId: { userId: assigneeId, workspaceId },
+      },
+      select: { id: true },
+    });
+
+    if (!membership) {
+      throw new NotFoundException('Assignee not found in this workspace.');
     }
   }
 }

@@ -19,6 +19,7 @@ describe('mapBoardResponse', () => {
       workspaceId: 'workspace-1',
       createdAt: timestamp,
       updatedAt: timestamp,
+      workspace: { members: [] },
       columns: [
         {
           id: 'column-1',
@@ -39,6 +40,8 @@ describe('mapBoardResponse', () => {
               columnId: 'column-1',
               createdAt: timestamp,
               updatedAt: timestamp,
+              assigneeId: null,
+              assignee: null,
             },
           ],
         },

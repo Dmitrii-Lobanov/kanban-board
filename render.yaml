@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: kanban-board-api
+    runtime: node
+    plan: free
+    autoDeployTrigger: checksPass
+    buildCommand: npm ci --include=dev && npm exec --workspace @kanban-board/api -- prisma generate && npm run build --workspace @kanban-board/api
+    startCommand: npm exec --workspace @kanban-board/api -- prisma migrate deploy && npm run start:prod --workspace @kanban-board/api
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kanban-board-db
+          property: connectionString
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_AUTHORIZED_PARTIES
+        sync: false
+
+databases:
+  - name: kanban-board-db
+    plan: free
+    databaseName: kanban
+    user: kanban
+    postgresMajorVersion: "17"

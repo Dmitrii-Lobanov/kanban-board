@@ -12,6 +12,9 @@ export interface Task {
 }
 
 export interface PersistedTask extends Task {
+  assigneeId: string | null;
+  description: string | null;
+  priority: "LOW" | "MEDIUM" | "HIGH";
   columnId: string;
   position: number;
   version: number;
