@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 import { ConflictException } from '@nestjs/common';
-import { ColumnKey, TaskPriority } from '@prisma/client';
+import { ColumnKey, TaskPriority, WorkspaceRole } from '@prisma/client';
 
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TasksService } from '../src/tasks/tasks.service';
@@ -24,10 +24,13 @@ describe('TasksService integration', () => {
     },
   });
   const service = new TasksService(prisma);
+  let userId: string;
   let workspaceId: string | undefined;
 
   beforeAll(async () => {
     await prisma.$connect();
+    const user = await prisma.user.create({ data: {} });
+    userId = user.id;
   });
 
   afterEach(async () => {
@@ -38,6 +41,7 @@ describe('TasksService integration', () => {
   });
 
   afterAll(async () => {
+    await prisma.user.delete({ where: { id: userId } });
     await prisma.$disconnect();
   });
 
@@ -45,6 +49,9 @@ describe('TasksService integration', () => {
     const workspace = await prisma.workspace.create({
       data: {
         name: 'Cross-column integration test',
+        members: {
+          create: { userId, role: WorkspaceRole.OWNER },
+        },
         boards: {
           create: {
             title: 'Board',
@@ -114,7 +121,7 @@ describe('TasksService integration', () => {
       throw new Error('Integration fixture was not created correctly.');
     }
 
-    const response = await service.moveTask(movingTask.id, {
+    const response = await service.moveTask(userId, movingTask.id, {
       columnId: destinationColumn.id,
       position: 0,
       expectedVersion: 1,
@@ -151,6 +158,9 @@ describe('TasksService integration', () => {
     const workspace = await prisma.workspace.create({
       data: {
         name: 'Within-column integration test',
+        members: {
+          create: { userId, role: WorkspaceRole.MEMBER },
+        },
         boards: {
           create: {
             title: 'Board',
@@ -193,7 +203,7 @@ describe('TasksService integration', () => {
       throw new Error('Integration fixture was not created correctly.');
     }
 
-    await service.moveTask(movingTask.id, {
+    await service.moveTask(userId, movingTask.id, {
       columnId: column.id,
       position: 0,
       expectedVersion: 1,
@@ -215,6 +225,9 @@ describe('TasksService integration', () => {
     const workspace = await prisma.workspace.create({
       data: {
         name: 'Concurrent move integration test',
+        members: {
+          create: { userId, role: WorkspaceRole.OWNER },
+        },
         boards: {
           create: {
             title: 'Board',
@@ -267,12 +280,12 @@ describe('TasksService integration', () => {
     }
 
     const results = await Promise.allSettled([
-      service.moveTask(task.id, {
+      service.moveTask(userId, task.id, {
         columnId: progressColumn.id,
         position: 0,
         expectedVersion: 1,
       }),
-      service.moveTask(task.id, {
+      service.moveTask(userId, task.id, {
         columnId: doneColumn.id,
         position: 0,
         expectedVersion: 1,

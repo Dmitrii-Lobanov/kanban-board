@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { WorkspaceRole, type Prisma } from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { mapTaskResponse } from '../boards/board-response.mapper';
@@ -22,10 +22,22 @@ type TaskPositionSnapshot = {
 export class TasksService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async moveTask(taskId: string, dto: MoveTaskDto) {
-    const task = await this.prisma.task.findUnique({
+  async moveTask(userId: string, taskId: string, dto: MoveTaskDto) {
+    const task = await this.prisma.task.findFirst({
       where: {
         id: taskId,
+        column: {
+          board: {
+            workspace: {
+              members: {
+                some: {
+                  userId,
+                  role: { in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER] },
+                },
+              },
+            },
+          },
+        },
       },
       select: {
         id: true,
@@ -43,9 +55,14 @@ export class TasksService {
       throw new ConflictException('Task has been modified by another client.');
     }
 
-    const destinationColumn = await this.prisma.column.findUnique({
+    const destinationColumn = await this.prisma.column.findFirst({
       where: {
         id: dto.columnId,
+        board: {
+          columns: {
+            some: { id: task.columnId },
+          },
+        },
       },
       select: {
         id: true,

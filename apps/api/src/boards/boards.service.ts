@@ -6,8 +6,15 @@ import { mapBoardResponse } from './board-response.mapper';
 export class BoardsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll() {
+  async findAll(userId: string) {
     const boards = await this.prisma.board.findMany({
+      where: {
+        workspace: {
+          members: {
+            some: { userId },
+          },
+        },
+      },
       orderBy: {
         position: 'asc',
       },
