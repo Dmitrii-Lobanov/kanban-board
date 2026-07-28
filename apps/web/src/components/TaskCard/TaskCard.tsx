@@ -2,6 +2,7 @@ import type { UpdateTaskRequest } from "@kanban-board/contracts";
 import { type DragEvent, type FormEvent, useId, useState } from "react";
 import { ApiError } from "../../api/api-error";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
+import selectStyles from "../SelectControl/SelectControl.module.css";
 import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
@@ -155,6 +156,7 @@ export function TaskCard({
           <label>
             <span>Priority</span>
             <select
+              className={selectStyles.select}
               value={priority}
               disabled={isSaving}
               onChange={event => {

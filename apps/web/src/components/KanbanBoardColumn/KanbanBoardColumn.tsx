@@ -4,6 +4,7 @@ import type {
   UpdateTaskRequest,
 } from "@kanban-board/contracts";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
+import selectStyles from "../SelectControl/SelectControl.module.css";
 import { TaskCard } from "../TaskCard";
 import styles from "./KanbanBoardColumn.module.css";
 
@@ -171,7 +172,7 @@ export function KanbanBoardColumn({
           </label>
           <select
             id={`${headingId}-priority`}
-            className={styles.createInput}
+            className={`${styles.createInput} ${selectStyles.select}`}
             value={newTaskPriority}
             disabled={isCreating}
             onChange={event => {
