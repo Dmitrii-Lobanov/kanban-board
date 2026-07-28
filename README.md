@@ -11,6 +11,11 @@ A production-deployed Kanban application demonstrating authenticated data access
 
 The API runs on Render's free tier, so its first request after inactivity may take several seconds.
 
+> The public demo intentionally uses a Clerk development instance because Clerk
+> production instances require a custom domain with configurable DNS records,
+> while this portfolio deployment uses a Vercel-provided `*.vercel.app` domain.
+> Development-instance limits are acceptable for this demonstration.
+
 ## What it demonstrates
 
 - Clerk sign-up, sign-in, and protected API requests
@@ -176,7 +181,8 @@ TEST_DATABASE_URL='postgresql://kanban:kanban@localhost:5434/kanban_test?schema=
 - The React application is built and hosted by Vercel.
 - The NestJS API and PostgreSQL database are hosted by Render.
 - Render applies committed Prisma migrations when the service starts.
-- Production origins are explicitly allowed by both CORS and Clerk token verification.
+- The deployed frontend origin is explicitly allowed by both CORS and Clerk token verification.
+- The portfolio demo uses matching Clerk development keys on Vercel and Render; a custom-domain deployment can switch to Clerk production keys without application code changes.
 
 Deployment secrets are configured in the hosting dashboards and are not stored in this repository.
 
