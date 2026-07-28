@@ -5,8 +5,7 @@ services:
     plan: free
     autoDeployTrigger: checksPass
     buildCommand: npm ci && npm exec --workspace @kanban-board/api -- prisma generate && npm run build --workspace @kanban-board/api
-    preDeployCommand: npm exec --workspace @kanban-board/api -- prisma migrate deploy
-    startCommand: npm run start:prod --workspace @kanban-board/api
+    startCommand: npm exec --workspace @kanban-board/api -- prisma migrate deploy && npm run start:prod --workspace @kanban-board/api
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
