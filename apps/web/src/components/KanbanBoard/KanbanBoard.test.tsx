@@ -42,7 +42,13 @@ const initialBoards: BoardResponse[] = [
     workspaceId: "workspace-1",
     createdAt: "2026-07-23T12:00:00.000Z",
     updatedAt: "2026-07-23T12:00:00.000Z",
-    members: [],
+    members: [
+      {
+        id: "user-1",
+        displayName: "Dmitrii",
+        email: "dmitrii@example.com",
+      },
+    ],
     columns: [
       {
         id: "column-todo",
@@ -252,6 +258,10 @@ describe("KanbanBoard", () => {
       within(doneColumn).getByLabelText("Priority"),
       "HIGH"
     );
+    await user.selectOptions(
+      within(doneColumn).getByLabelText("Assignee"),
+      "user-1"
+    );
     await user.click(
       within(doneColumn).getByRole("button", { name: "Add task" })
     );
@@ -263,6 +273,7 @@ describe("KanbanBoard", () => {
           description: "Publish the final case study",
           priority: "HIGH",
           columnId: "column-done",
+          assigneeId: "user-1",
         },
         "test-token"
       );
@@ -308,6 +319,7 @@ describe("KanbanBoard", () => {
           description: "Ready for review",
           priority: "HIGH",
           expectedVersion: 1,
+          assigneeId: null,
         },
         "test-token"
       );

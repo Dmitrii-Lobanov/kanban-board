@@ -65,7 +65,10 @@ describe('TasksService', () => {
     });
     const findColumn = jest
       .spyOn(prisma.column, 'findFirst')
-      .mockResolvedValue(createColumn());
+      .mockResolvedValue({
+        id: 'column-destination',
+        board: { workspaceId: 'workspace-1' },
+      });
     jest.spyOn(prisma.task, 'count').mockResolvedValue(2);
     const create = jest
       .spyOn(prisma.task, 'create')
@@ -88,7 +91,9 @@ describe('TasksService', () => {
         priority: TaskPriority.MEDIUM,
         columnId: 'column-destination',
         position: 2,
+        assigneeId: null,
       },
+      include: { assignee: true },
     });
     expect(response).toMatchObject({ title: 'New task', position: 2 });
   });
@@ -110,9 +115,11 @@ describe('TasksService', () => {
   });
 
   it('updates task details with an atomic version claim', async () => {
-    jest
-      .spyOn(prisma.task, 'findFirst')
-      .mockResolvedValue(createTask({ version: 3 }));
+    jest.spyOn(prisma.task, 'findFirst').mockResolvedValue({
+      id: 'task-1',
+      version: 3,
+      column: { board: { workspaceId: 'workspace-1' } },
+    });
     const updateMany = jest
       .spyOn(prisma.task, 'updateMany')
       .mockResolvedValue({ count: 1 });
@@ -139,15 +146,18 @@ describe('TasksService', () => {
         description: 'Updated description',
         priority: TaskPriority.HIGH,
         version: { increment: 1 },
+        assigneeId: null,
       },
     });
     expect(response).toMatchObject({ title: 'Updated task', version: 4 });
   });
 
   it('rejects editing a stale task version', async () => {
-    jest
-      .spyOn(prisma.task, 'findFirst')
-      .mockResolvedValue(createTask({ version: 4 }));
+    jest.spyOn(prisma.task, 'findFirst').mockResolvedValue({
+      id: 'task-1',
+      version: 4,
+      column: { board: { workspaceId: 'workspace-1' } },
+    });
     const updateMany = jest.spyOn(prisma.task, 'updateMany');
 
     await expect(
@@ -342,6 +352,7 @@ describe('TasksService', () => {
           columnId: 'column-destination',
           position: 1,
         },
+        include: { assignee: true },
       },
     ]);
     expect(updateMany).toHaveBeenCalledWith({
@@ -399,6 +410,7 @@ describe('TasksService', () => {
           columnId: 'column-source',
           position: 0,
         },
+        include: { assignee: true },
       },
     ]);
     expect(updateMany).toHaveBeenCalledWith({
