@@ -1,8 +1,9 @@
-import { verifyToken } from '@clerk/backend';
+import { createClerkClient, verifyToken } from '@clerk/backend';
 import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
@@ -19,6 +20,8 @@ export type AuthenticatedRequest = FastifyRequest & {
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
+  private readonly logger = new Logger(ClerkAuthGuard.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly onboarding: UserOnboardingService,
@@ -38,8 +41,12 @@ export class ClerkAuthGuard implements CanActivate {
       where: { clerkId: clerkUserId },
       update: {},
       create: { clerkId: clerkUserId },
-      select: { id: true },
+      select: { id: true, displayName: true, email: true },
     });
+
+    if (!user.displayName || !user.email) {
+      await this.syncClerkProfile(user.id, clerkUserId, secretKey);
+    }
 
     await this.onboarding.ensureStarterWorkspace(user.id);
 
@@ -83,5 +90,30 @@ export class ClerkAuthGuard implements CanActivate {
     }
 
     return authorization.slice('Bearer '.length).trim() || null;
+  }
+
+  private async syncClerkProfile(
+    userId: string,
+    clerkUserId: string,
+    secretKey: string,
+  ): Promise<void> {
+    try {
+      const clerk = createClerkClient({ secretKey });
+      const profile = await clerk.users.getUser(clerkUserId);
+      const email = profile.primaryEmailAddress?.emailAddress ?? null;
+      const fullName = [profile.firstName, profile.lastName]
+        .filter((value): value is string => Boolean(value))
+        .join(' ');
+      const displayName = fullName || profile.username || email;
+
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { email, displayName },
+      });
+    } catch {
+      this.logger.warn(
+        `Unable to synchronize Clerk profile for ${clerkUserId}`,
+      );
+    }
   }
 }

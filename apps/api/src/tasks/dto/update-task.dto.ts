@@ -9,6 +9,7 @@ import {
   Matches,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdateTaskDto implements UpdateTaskRequest {
@@ -29,4 +30,9 @@ export class UpdateTaskDto implements UpdateTaskRequest {
   @IsInt()
   @Min(1)
   expectedVersion!: number;
+
+  @ValidateIf((_object, value) => value !== null && value !== undefined)
+  @IsString()
+  @IsNotEmpty()
+  assigneeId?: string | null;
 }

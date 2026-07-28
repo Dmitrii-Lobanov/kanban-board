@@ -2,6 +2,12 @@ export const COLUMN_KEYS = ["todo", "in-progress", "done"] as const;
 
 export type ColumnKey = (typeof COLUMN_KEYS)[number];
 
+export type WorkspaceMemberResponse = {
+  id: string;
+  displayName: string | null;
+  email: string | null;
+};
+
 export type TaskResponse = {
   id: string;
   title: string;
@@ -12,6 +18,7 @@ export type TaskResponse = {
   columnId: string;
   createdAt: string;
   updatedAt: string;
+  assignee: WorkspaceMemberResponse | null;
 };
 
 export type MoveTaskRequest = {
@@ -25,6 +32,7 @@ export type CreateTaskRequest = {
   columnId: string;
   description?: string;
   priority?: "LOW" | "MEDIUM" | "HIGH";
+  assigneeId?: string | null;
 };
 
 export type UpdateTaskRequest = {
@@ -32,6 +40,7 @@ export type UpdateTaskRequest = {
   description?: string | null;
   priority: "LOW" | "MEDIUM" | "HIGH";
   expectedVersion: number;
+  assigneeId?: string | null;
 };
 
 export type DeleteTaskRequest = {
@@ -57,4 +66,5 @@ export type BoardResponse = {
   createdAt: string;
   updatedAt: string;
   columns: ColumnResponse[];
+  members: WorkspaceMemberResponse[];
 };

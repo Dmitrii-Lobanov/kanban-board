@@ -33,6 +33,7 @@ const persistedTasks: PersistedTask[] = [
   {
     ...tasks[0],
     description: null,
+    assigneeId: null,
     priority: "MEDIUM",
     columnId: "column-todo",
     position: 0,
@@ -41,6 +42,7 @@ const persistedTasks: PersistedTask[] = [
   {
     ...tasks[1],
     description: null,
+    assigneeId: null,
     priority: "HIGH",
     id: "task-2",
     columnId: "column-progress",
@@ -50,6 +52,7 @@ const persistedTasks: PersistedTask[] = [
   {
     ...tasks[1],
     description: null,
+    assigneeId: null,
     priority: "LOW",
     id: "task-3",
     title: "Review drag-and-drop",

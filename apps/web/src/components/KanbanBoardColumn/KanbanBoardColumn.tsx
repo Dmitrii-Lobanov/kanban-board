@@ -2,6 +2,7 @@ import { type DragEvent, type FormEvent, useState } from "react";
 import type {
   CreateTaskRequest,
   UpdateTaskRequest,
+  WorkspaceMemberResponse,
 } from "@kanban-board/contracts";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
 import selectStyles from "../SelectControl/SelectControl.module.css";
@@ -15,6 +16,7 @@ interface KanbanBoardColumnProps {
   appendPosition: number;
   pendingTaskIds: ReadonlySet<string>;
   taskErrors: Record<string, string | undefined>;
+  members: WorkspaceMemberResponse[];
   onCreateTask: (request: Omit<CreateTaskRequest, "columnId">) => Promise<void>;
   onDeleteTask: (taskId: string, expectedVersion: number) => Promise<void>;
   onUpdateTask: (taskId: string, request: UpdateTaskRequest) => Promise<void>;
@@ -34,6 +36,7 @@ export function KanbanBoardColumn({
   appendPosition,
   pendingTaskIds,
   taskErrors,
+  members,
   onCreateTask,
   onDeleteTask,
   onUpdateTask,
@@ -48,6 +51,7 @@ export function KanbanBoardColumn({
   const [newTaskPriority, setNewTaskPriority] =
     useState<NonNullable<CreateTaskRequest["priority"]>>("MEDIUM");
   const [createError, setCreateError] = useState<string>();
+  const [newTaskAssigneeId, setNewTaskAssigneeId] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   const headingId = `column-${status}`;
@@ -94,10 +98,12 @@ export function KanbanBoardColumn({
         title,
         description: newTaskDescription.trim() || undefined,
         priority: newTaskPriority,
+        assigneeId: newTaskAssigneeId || null,
       });
       setNewTaskTitle("");
       setNewTaskDescription("");
       setNewTaskPriority("MEDIUM");
+      setNewTaskAssigneeId("");
       setIsAddingTask(false);
     } catch {
       setCreateError("Unable to create the task. Please try again.");
@@ -189,6 +195,26 @@ export function KanbanBoardColumn({
             <option value="MEDIUM">Medium</option>
             <option value="HIGH">High</option>
           </select>
+          <label
+            className={styles.createLabel}
+            htmlFor={`${headingId}-assignee`}
+          >
+            Assignee
+          </label>
+          <select
+            id={`${headingId}-assignee`}
+            className={`${styles.createInput} ${selectStyles.select}`}
+            value={newTaskAssigneeId}
+            disabled={isCreating}
+            onChange={event => setNewTaskAssigneeId(event.target.value)}
+          >
+            <option value="">Unassigned</option>
+            {members.map(member => (
+              <option key={member.id} value={member.id}>
+                {member.displayName ?? member.email ?? "Workspace member"}
+              </option>
+            ))}
+          </select>
           <div className={styles.createActions}>
             <button type="submit" disabled={isCreating}>
               {isCreating ? "Adding…" : "Add task"}
@@ -201,6 +227,7 @@ export function KanbanBoardColumn({
                 setNewTaskTitle("");
                 setNewTaskDescription("");
                 setNewTaskPriority("MEDIUM");
+                setNewTaskAssigneeId("");
                 setCreateError(undefined);
               }}
             >
@@ -223,6 +250,7 @@ export function KanbanBoardColumn({
               task={task}
               isPending={pendingTaskIds.has(task.id)}
               error={taskErrors[task.id]}
+              members={members}
               onDeleteTask={onDeleteTask}
               onUpdateTask={onUpdateTask}
               onStatusChange={onStatusChange}

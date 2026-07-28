@@ -47,12 +47,32 @@ function parsePriority(value: unknown): TaskDto["priority"] {
   }
 }
 
+function parseMember(value: unknown) {
+  if (!isRecord(value)) {
+    throw new Error("Invalid boards response: member must be an object.");
+  }
+
+  const displayName = value.displayName;
+  const email = value.email;
+
+  if (displayName !== null && typeof displayName !== "string") {
+    throw new Error("Invalid boards response: invalid member display name.");
+  }
+
+  if (email !== null && typeof email !== "string") {
+    throw new Error("Invalid boards response: invalid member email.");
+  }
+
+  return { id: readString(value, "id"), displayName, email };
+}
+
 export function parseTaskResponse(value: unknown): TaskDto {
   if (!isRecord(value)) {
     throw new Error("Invalid boards response: task must be an object.");
   }
 
   const description = value.description;
+  const assignee = value.assignee;
 
   if (description !== null && typeof description !== "string") {
     throw new Error(
@@ -70,6 +90,7 @@ export function parseTaskResponse(value: unknown): TaskDto {
     columnId: readString(value, "columnId"),
     createdAt: readString(value, "createdAt"),
     updatedAt: readString(value, "updatedAt"),
+    assignee: assignee === null ? null : parseMember(assignee),
   };
 }
 
@@ -91,7 +112,11 @@ function parseColumn(value: unknown): ColumnDto {
 }
 
 function parseBoard(value: unknown): BoardDto {
-  if (!isRecord(value) || !Array.isArray(value.columns)) {
+  if (
+    !isRecord(value) ||
+    !Array.isArray(value.columns) ||
+    !Array.isArray(value.members)
+  ) {
     throw new Error("Invalid boards response: board must contain columns.");
   }
 
@@ -102,6 +127,7 @@ function parseBoard(value: unknown): BoardDto {
     workspaceId: readString(value, "workspaceId"),
     createdAt: readString(value, "createdAt"),
     updatedAt: readString(value, "updatedAt"),
+    members: value.members.map(parseMember),
     columns: value.columns.map(parseColumn),
   };
 }

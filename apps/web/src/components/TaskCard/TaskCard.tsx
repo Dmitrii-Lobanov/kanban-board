@@ -1,4 +1,7 @@
-import type { UpdateTaskRequest } from "@kanban-board/contracts";
+import type {
+  UpdateTaskRequest,
+  WorkspaceMemberResponse,
+} from "@kanban-board/contracts";
 import { type DragEvent, type FormEvent, useId, useState } from "react";
 import { ApiError } from "../../api/api-error";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
@@ -9,6 +12,7 @@ interface TaskCardProps {
   task: PersistedTask;
   isPending: boolean;
   error?: string;
+  members: WorkspaceMemberResponse[];
   onDeleteTask: (taskId: string, expectedVersion: number) => Promise<void>;
   onUpdateTask: (taskId: string, request: UpdateTaskRequest) => Promise<void>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
@@ -38,6 +42,7 @@ export function TaskCard({
   task,
   isPending,
   error,
+  members,
   onDeleteTask,
   onUpdateTask,
   onStatusChange,
@@ -53,6 +58,7 @@ export function TaskCard({
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description ?? "");
   const [priority, setPriority] = useState(task.priority);
+  const [assigneeId, setAssigneeId] = useState(task.assigneeId ?? "");
   const generatedId = useId();
   const pendingMessageId = `${generatedId}-pending`;
   const errorMessageId = `${generatedId}-error`;
@@ -83,6 +89,7 @@ export function TaskCard({
         description,
         priority,
         expectedVersion: task.version,
+        assigneeId: assigneeId || null,
       });
       setIsEditing(false);
     } catch (updateError) {
@@ -140,6 +147,7 @@ export function TaskCard({
             setTitle(task.title);
             setDescription(task.description ?? "");
             setPriority(task.priority);
+            setAssigneeId(task.assigneeId ?? "");
             setEditError(undefined);
             setIsEditing(current => !current);
           }}
@@ -192,6 +200,22 @@ export function TaskCard({
               <option value="LOW">Low</option>
               <option value="MEDIUM">Medium</option>
               <option value="HIGH">High</option>
+            </select>
+          </label>
+          <label>
+            <span>Assignee</span>
+            <select
+              className={selectStyles.select}
+              value={assigneeId}
+              disabled={isSaving}
+              onChange={event => setAssigneeId(event.target.value)}
+            >
+              <option value="">Unassigned</option>
+              {members.map(member => (
+                <option key={member.id} value={member.id}>
+                  {member.displayName ?? member.email ?? "Workspace member"}
+                </option>
+              ))}
             </select>
           </label>
           <div className={styles.editActions}>

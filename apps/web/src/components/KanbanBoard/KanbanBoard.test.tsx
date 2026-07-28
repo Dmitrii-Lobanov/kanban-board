@@ -42,6 +42,7 @@ const initialBoards: BoardResponse[] = [
     workspaceId: "workspace-1",
     createdAt: "2026-07-23T12:00:00.000Z",
     updatedAt: "2026-07-23T12:00:00.000Z",
+    members: [],
     columns: [
       {
         id: "column-todo",
@@ -62,6 +63,7 @@ const initialBoards: BoardResponse[] = [
             columnId: "column-todo",
             createdAt: "2026-07-23T12:00:00.000Z",
             updatedAt: "2026-07-23T12:00:00.000Z",
+            assignee: null,
           },
         ],
       },
@@ -84,6 +86,7 @@ const initialBoards: BoardResponse[] = [
             columnId: "column-progress",
             createdAt: "2026-07-23T12:00:00.000Z",
             updatedAt: "2026-07-23T12:00:00.000Z",
+            assignee: null,
           },
         ],
       },
@@ -160,6 +163,7 @@ function createMovedTaskResponse(
     columnId,
     createdAt: "2026-07-23T12:00:00.000Z",
     updatedAt: "2026-07-23T12:01:00.000Z",
+    assignee: null,
   };
 }
 
@@ -226,6 +230,7 @@ describe("KanbanBoard", () => {
       columnId: "column-done",
       createdAt: "2026-07-28T12:00:00.000Z",
       updatedAt: "2026-07-28T12:00:00.000Z",
+      assignee: null,
     });
     const user = userEvent.setup();
 

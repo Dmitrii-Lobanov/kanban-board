@@ -51,7 +51,7 @@ export class TasksService {
                   },
                 },
               },
-              select: { id: true },
+              select: { id: true, board: { select: { workspaceId: true } } },
             });
 
             if (!column) {
@@ -62,6 +62,12 @@ export class TasksService {
               where: { columnId: column.id },
             });
 
+            await this.assertWorkspaceAssignee(
+              transaction,
+              dto.assigneeId,
+              column.board.workspaceId,
+            );
+
             return transaction.task.create({
               data: {
                 title: dto.title.trim(),
@@ -69,7 +75,9 @@ export class TasksService {
                 priority: dto.priority ?? TaskPriority.MEDIUM,
                 columnId: column.id,
                 position,
+                assigneeId: dto.assigneeId ?? null,
               },
+              include: { assignee: true },
             });
           },
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -184,7 +192,11 @@ export class TasksService {
           },
         },
       },
-      select: { id: true, version: true },
+      select: {
+        id: true,
+        version: true,
+        column: { select: { board: { select: { workspaceId: true } } } },
+      },
     });
 
     if (!task) {
@@ -195,6 +207,12 @@ export class TasksService {
       throw new ConflictException('Task has been modified by another client.');
     }
 
+    await this.assertWorkspaceAssignee(
+      this.prisma,
+      dto.assigneeId,
+      task.column.board.workspaceId,
+    );
+
     const update = await this.prisma.task.updateMany({
       where: { id: task.id, version: dto.expectedVersion },
       data: {
@@ -202,6 +220,7 @@ export class TasksService {
         description: dto.description?.trim() || null,
         priority: dto.priority,
         version: { increment: 1 },
+        assigneeId: dto.assigneeId ?? null,
       },
     });
 
@@ -211,6 +230,7 @@ export class TasksService {
 
     const updatedTask = await this.prisma.task.findUniqueOrThrow({
       where: { id: task.id },
+      include: { assignee: true },
     });
 
     return mapTaskResponse(updatedTask);
@@ -317,6 +337,7 @@ export class TasksService {
           columnId: dto.columnId,
           position: destinationPosition,
         },
+        include: { assignee: true },
       });
     });
 
@@ -465,5 +486,26 @@ export class TasksService {
       error instanceof Prisma.PrismaClientKnownRequestError &&
       (error.code === 'P2002' || error.code === 'P2034')
     );
+  }
+
+  private async assertWorkspaceAssignee(
+    client: Pick<TransactionClient, 'workspaceMember'>,
+    assigneeId: string | null | undefined,
+    workspaceId: string,
+  ): Promise<void> {
+    if (!assigneeId) {
+      return;
+    }
+
+    const membership = await client.workspaceMember.findUnique({
+      where: {
+        userId_workspaceId: { userId: assigneeId, workspaceId },
+      },
+      select: { id: true },
+    });
+
+    if (!membership) {
+      throw new NotFoundException('Assignee not found in this workspace.');
+    }
   }
 }

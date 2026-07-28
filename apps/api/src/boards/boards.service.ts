@@ -19,6 +19,17 @@ export class BoardsService {
         position: 'asc',
       },
       include: {
+        workspace: {
+          include: {
+            members: {
+              include: {
+                user: {
+                  select: { id: true, displayName: true, email: true },
+                },
+              },
+            },
+          },
+        },
         columns: {
           orderBy: {
             position: 'asc',
@@ -27,6 +38,11 @@ export class BoardsService {
             tasks: {
               orderBy: {
                 position: 'asc',
+              },
+              include: {
+                assignee: {
+                  select: { id: true, displayName: true, email: true },
+                },
               },
             },
           },

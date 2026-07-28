@@ -7,6 +7,7 @@ import {
   IsString,
   Matches,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateTaskDto implements CreateTaskRequest {
@@ -28,4 +29,9 @@ export class CreateTaskDto implements CreateTaskRequest {
   @IsOptional()
   @IsEnum(TaskPriority)
   priority?: TaskPriority;
+
+  @ValidateIf((_object, value) => value !== null && value !== undefined)
+  @IsString()
+  @IsNotEmpty()
+  assigneeId?: string | null;
 }

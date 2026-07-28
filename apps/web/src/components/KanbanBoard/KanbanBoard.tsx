@@ -1,10 +1,7 @@
 import { type DragEvent, useMemo, useState } from "react";
+import type { WorkspaceMemberResponse } from "@kanban-board/contracts";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
-import {
-  filterTasks,
-  getAssignees,
-  groupTasksByStatus,
-} from "../../domain/taskUtils";
+import { filterTasks, groupTasksByStatus } from "../../domain/taskUtils";
 import { useBoards } from "../../features/boards/hooks/useBoards";
 import { useCreateTaskMutation } from "../../hooks/useCreateTaskMutation";
 import { useDeleteTaskMutation } from "../../hooks/useDeleteTaskMutation";
@@ -39,9 +36,14 @@ const columns: ColumnConfiguration[] = [
 interface BoardContentProps {
   initialTasks: PersistedTask[];
   columnIdsByStatus: Record<TaskStatus, string>;
+  members: WorkspaceMemberResponse[];
 }
 
-function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
+function BoardContent({
+  initialTasks,
+  columnIdsByStatus,
+  members,
+}: BoardContentProps) {
   const createTaskMutation = useCreateTaskMutation();
   const deleteTaskMutation = useDeleteTaskMutation();
   const updateTaskMutation = useUpdateTaskMutation();
@@ -51,7 +53,18 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
 
-  const assignees = useMemo(() => getAssignees(tasks), [tasks]);
+  const assignees = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          "Unassigned",
+          ...members.map(
+            member => member.displayName ?? member.email ?? "Workspace member"
+          ),
+        ])
+      ).sort(),
+    [members]
+  );
 
   const visibleTasks = useMemo(
     () =>
@@ -125,6 +138,7 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
             }
             pendingTaskIds={pendingTaskIds}
             taskErrors={taskErrors}
+            members={members}
             onCreateTask={async request => {
               await createTaskMutation.mutateAsync({
                 ...request,
@@ -171,7 +185,9 @@ export function KanbanBoard() {
     column.tasks.map(task => ({
       id: task.id,
       title: task.title,
-      assignee: "Unassigned",
+      assignee:
+        task.assignee?.displayName ?? task.assignee?.email ?? "Unassigned",
+      assigneeId: task.assignee?.id ?? null,
       description: task.description,
       priority: task.priority,
       status: column.key,
@@ -213,6 +229,7 @@ export function KanbanBoard() {
       <BoardContent
         initialTasks={initialTasks}
         columnIdsByStatus={columnIdsByStatus}
+        members={board.members}
       />
     </main>
   );
