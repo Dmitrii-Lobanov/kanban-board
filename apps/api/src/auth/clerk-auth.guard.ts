@@ -8,6 +8,7 @@ import {
 import type { FastifyRequest } from 'fastify';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { UserOnboardingService } from './user-onboarding.service';
 
 export type AuthenticatedRequest = FastifyRequest & {
   auth?: {
@@ -18,7 +19,10 @@ export type AuthenticatedRequest = FastifyRequest & {
 
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly onboarding: UserOnboardingService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -29,6 +33,25 @@ export class ClerkAuthGuard implements CanActivate {
       throw new UnauthorizedException('Authentication is required.');
     }
 
+    const clerkUserId = await this.verifyClerkToken(token, secretKey);
+    const user = await this.prisma.user.upsert({
+      where: { clerkId: clerkUserId },
+      update: {},
+      create: { clerkId: clerkUserId },
+      select: { id: true },
+    });
+
+    await this.onboarding.ensureStarterWorkspace(user.id);
+
+    request.auth = { userId: user.id, clerkUserId };
+
+    return true;
+  }
+
+  private async verifyClerkToken(
+    token: string,
+    secretKey: string,
+  ): Promise<string> {
     try {
       const payload = await verifyToken(token, {
         secretKey,
@@ -44,16 +67,7 @@ export class ClerkAuthGuard implements CanActivate {
         throw new UnauthorizedException('Authentication is required.');
       }
 
-      const user = await this.prisma.user.upsert({
-        where: { clerkId: clerkUserId },
-        update: {},
-        create: { clerkId: clerkUserId },
-        select: { id: true },
-      });
-
-      request.auth = { userId: user.id, clerkUserId };
-
-      return true;
+      return clerkUserId;
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
