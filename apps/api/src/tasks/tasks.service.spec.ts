@@ -109,6 +109,60 @@ describe('TasksService', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it('updates task details with an atomic version claim', async () => {
+    jest
+      .spyOn(prisma.task, 'findFirst')
+      .mockResolvedValue(createTask({ version: 3 }));
+    const updateMany = jest
+      .spyOn(prisma.task, 'updateMany')
+      .mockResolvedValue({ count: 1 });
+    jest.spyOn(prisma.task, 'findUniqueOrThrow').mockResolvedValue(
+      createTask({
+        title: 'Updated task',
+        description: 'Updated description',
+        priority: TaskPriority.HIGH,
+        version: 4,
+      }),
+    );
+
+    const response = await service.updateTask('user-1', 'task-1', {
+      title: ' Updated task ',
+      description: ' Updated description ',
+      priority: TaskPriority.HIGH,
+      expectedVersion: 3,
+    });
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'task-1', version: 3 },
+      data: {
+        title: 'Updated task',
+        description: 'Updated description',
+        priority: TaskPriority.HIGH,
+        version: { increment: 1 },
+      },
+    });
+    expect(response).toMatchObject({ title: 'Updated task', version: 4 });
+  });
+
+  it('rejects editing a stale task version', async () => {
+    jest
+      .spyOn(prisma.task, 'findFirst')
+      .mockResolvedValue(createTask({ version: 4 }));
+    const updateMany = jest.spyOn(prisma.task, 'updateMany');
+
+    await expect(
+      service.updateTask('user-1', 'task-1', {
+        title: 'Updated task',
+        description: null,
+        priority: TaskPriority.MEDIUM,
+        expectedVersion: 3,
+      }),
+    ).rejects.toThrow(
+      new ConflictException('Task has been modified by another client.'),
+    );
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
   it('rejects a missing task', async () => {
     const findFirst = jest
       .spyOn(prisma.task, 'findFirst')

@@ -1,4 +1,5 @@
 import { type DragEvent, type FormEvent, useState } from "react";
+import type { UpdateTaskRequest } from "@kanban-board/contracts";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
 import { TaskCard } from "../TaskCard";
 import styles from "./KanbanBoardColumn.module.css";
@@ -11,6 +12,7 @@ interface KanbanBoardColumnProps {
   pendingTaskIds: ReadonlySet<string>;
   taskErrors: Record<string, string | undefined>;
   onCreateTask: (title: string) => Promise<void>;
+  onUpdateTask: (taskId: string, request: UpdateTaskRequest) => Promise<void>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
   onDropTask: (
@@ -28,6 +30,7 @@ export function KanbanBoardColumn({
   pendingTaskIds,
   taskErrors,
   onCreateTask,
+  onUpdateTask,
   onStatusChange,
   onDragStart,
   onDropTask,
@@ -165,6 +168,7 @@ export function KanbanBoardColumn({
               task={task}
               isPending={pendingTaskIds.has(task.id)}
               error={taskErrors[task.id]}
+              onUpdateTask={onUpdateTask}
               onStatusChange={onStatusChange}
               onDragStart={onDragStart}
               onDrop={event => {

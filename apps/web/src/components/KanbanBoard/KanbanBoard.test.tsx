@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardResponse, TaskResponse } from "@kanban-board/contracts";
 import { ApiError } from "../../api/api-error";
 import { getBoards } from "../../api/boards";
-import { createTask, moveTask } from "../../api/tasks";
+import { createTask, moveTask, updateTask } from "../../api/tasks";
 import { KanbanBoard } from "./KanbanBoard";
 
 vi.mock("@clerk/react", () => ({
@@ -26,6 +26,7 @@ vi.mock("@clerk/react", () => ({
 vi.mock("../../api/tasks", () => ({
   createTask: vi.fn(),
   moveTask: vi.fn(),
+  updateTask: vi.fn(),
 }));
 
 vi.mock("../../api/boards", () => ({
@@ -102,6 +103,7 @@ const initialBoards: BoardResponse[] = [
 const mockedGetBoards = vi.mocked(getBoards);
 const mockedCreateTask = vi.mocked(createTask);
 const mockedMoveTask = vi.mocked(moveTask);
+const mockedUpdateTask = vi.mocked(updateTask);
 const optimisticTaskTitle = "Model optimistic task state";
 const draggableTaskTitle = "Build native drag-and-drop";
 
@@ -207,6 +209,7 @@ describe("KanbanBoard", () => {
     mockedGetBoards.mockResolvedValue(initialBoards);
     mockedCreateTask.mockReset();
     mockedMoveTask.mockReset();
+    mockedUpdateTask.mockReset();
   });
 
   it("creates a task in the selected column", async () => {
@@ -242,6 +245,51 @@ describe("KanbanBoard", () => {
         {
           title: "Ship portfolio",
           columnId: "column-done",
+        },
+        "test-token"
+      );
+    });
+  });
+
+  it("edits task details with the current version", async () => {
+    mockedUpdateTask.mockResolvedValueOnce({
+      ...initialBoards[0]!.columns[0]!.tasks[0]!,
+      title: "Updated portfolio task",
+      description: "Ready for review",
+      priority: "HIGH",
+      version: 2,
+    });
+    const user = userEvent.setup();
+
+    await renderBoard();
+
+    const taskCard = getTaskCard(optimisticTaskTitle);
+    expect(taskCard).not.toBeNull();
+
+    await user.click(within(taskCard!).getByRole("button", { name: "Edit" }));
+    const titleInput = within(taskCard!).getByLabelText("Title");
+    await user.clear(titleInput);
+    await user.type(titleInput, "Updated portfolio task");
+    await user.type(
+      within(taskCard!).getByLabelText("Description"),
+      "Ready for review"
+    );
+    await user.selectOptions(
+      within(taskCard!).getByLabelText("Priority"),
+      "HIGH"
+    );
+    await user.click(
+      within(taskCard!).getByRole("button", { name: "Save changes" })
+    );
+
+    await waitFor(() => {
+      expect(mockedUpdateTask).toHaveBeenCalledWith(
+        "task-1",
+        {
+          title: "Updated portfolio task",
+          description: "Ready for review",
+          priority: "HIGH",
+          expectedVersion: 1,
         },
         "test-token"
       );

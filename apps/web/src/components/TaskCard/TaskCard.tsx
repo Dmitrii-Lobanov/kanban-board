@@ -1,11 +1,14 @@
-import { type DragEvent, useId } from "react";
-import type { Task, TaskStatus } from "../../domain/task";
+import type { UpdateTaskRequest } from "@kanban-board/contracts";
+import { type DragEvent, type FormEvent, useId, useState } from "react";
+import { ApiError } from "../../api/api-error";
+import type { PersistedTask, TaskStatus } from "../../domain/task";
 import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
-  task: Task;
+  task: PersistedTask;
   isPending: boolean;
   error?: string;
+  onUpdateTask: (taskId: string, request: UpdateTaskRequest) => Promise<void>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
   onDrop: (event: DragEvent<HTMLElement>) => void;
@@ -33,10 +36,17 @@ export function TaskCard({
   task,
   isPending,
   error,
+  onUpdateTask,
   onStatusChange,
   onDragStart,
   onDrop,
 }: TaskCardProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState<string>();
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description ?? "");
+  const [priority, setPriority] = useState(task.priority);
   const generatedId = useId();
   const pendingMessageId = `${generatedId}-pending`;
   const errorMessageId = `${generatedId}-error`;
@@ -50,12 +60,42 @@ export function TaskCard({
     .filter(Boolean)
     .join(" ");
 
+  const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!title.trim()) {
+      setEditError("Enter a task title.");
+      return;
+    }
+
+    setEditError(undefined);
+    setIsSaving(true);
+
+    try {
+      await onUpdateTask(task.id, {
+        title,
+        description,
+        priority,
+        expectedVersion: task.version,
+      });
+      setIsEditing(false);
+    } catch (updateError) {
+      setEditError(
+        updateError instanceof ApiError && updateError.status === 409
+          ? "This task changed elsewhere. Review the refreshed task and try again."
+          : "Unable to update the task. Please try again."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <article
       className={styles.card}
       aria-busy={isPending}
       aria-describedby={describedBy}
-      draggable={!isPending}
+      draggable={!isPending && !isEditing}
       onDragStart={event => {
         if (!isPending) {
           onDragStart(event, task.id);
@@ -67,7 +107,88 @@ export function TaskCard({
       }}
       onDrop={onDrop}
     >
-      <h3 className={styles.title}>{task.title}</h3>
+      <div className={styles.cardHeader}>
+        <h3 className={styles.title}>{task.title}</h3>
+        <button
+          type="button"
+          className={styles.editButton}
+          disabled={isPending || isSaving}
+          onClick={() => {
+            setTitle(task.title);
+            setDescription(task.description ?? "");
+            setPriority(task.priority);
+            setEditError(undefined);
+            setIsEditing(current => !current);
+          }}
+        >
+          {isEditing ? "Close" : "Edit"}
+        </button>
+      </div>
+
+      <span className={styles.priority}>{task.priority.toLowerCase()}</span>
+
+      {task.description ? (
+        <p className={styles.description}>{task.description}</p>
+      ) : null}
+
+      {isEditing ? (
+        <form className={styles.editForm} onSubmit={handleEditSubmit}>
+          <label>
+            <span>Title</span>
+            <input
+              value={title}
+              maxLength={200}
+              disabled={isSaving}
+              onChange={event => setTitle(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Description</span>
+            <textarea
+              value={description}
+              maxLength={2000}
+              rows={3}
+              disabled={isSaving}
+              onChange={event => setDescription(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Priority</span>
+            <select
+              value={priority}
+              disabled={isSaving}
+              onChange={event => {
+                const value = event.target.value;
+
+                if (value === "LOW" || value === "MEDIUM" || value === "HIGH") {
+                  setPriority(value);
+                }
+              }}
+            >
+              <option value="LOW">Low</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="HIGH">High</option>
+            </select>
+          </label>
+          <div className={styles.editActions}>
+            <button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving…" : "Save changes"}
+            </button>
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={() => setIsEditing(false)}
+            >
+              Cancel
+            </button>
+          </div>
+          {editError ? (
+            <p className={styles.error} role="alert">
+              {editError}
+            </p>
+          ) : null}
+        </form>
+      ) : null}
 
       <p className={styles.assignee}>
         Assigned to <strong>{task.assignee}</strong>

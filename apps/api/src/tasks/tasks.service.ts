@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { mapTaskResponse } from '../boards/board-response.mapper';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { MoveTaskDto } from './dto/move-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
 
 type TransactionClient = PrismaTypes.TransactionClient;
 
@@ -90,6 +91,55 @@ export class TasksService {
     }
 
     throw new ConflictException('Unable to create task. Please try again.');
+  }
+
+  async updateTask(userId: string, taskId: string, dto: UpdateTaskDto) {
+    const task = await this.prisma.task.findFirst({
+      where: {
+        id: taskId,
+        column: {
+          board: {
+            workspace: {
+              members: {
+                some: {
+                  userId,
+                  role: { in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER] },
+                },
+              },
+            },
+          },
+        },
+      },
+      select: { id: true, version: true },
+    });
+
+    if (!task) {
+      throw new NotFoundException('Task not found.');
+    }
+
+    if (task.version !== dto.expectedVersion) {
+      throw new ConflictException('Task has been modified by another client.');
+    }
+
+    const update = await this.prisma.task.updateMany({
+      where: { id: task.id, version: dto.expectedVersion },
+      data: {
+        title: dto.title.trim(),
+        description: dto.description?.trim() || null,
+        priority: dto.priority,
+        version: { increment: 1 },
+      },
+    });
+
+    if (update.count !== 1) {
+      throw new ConflictException('Task has been modified by another client.');
+    }
+
+    const updatedTask = await this.prisma.task.findUniqueOrThrow({
+      where: { id: task.id },
+    });
+
+    return mapTaskResponse(updatedTask);
   }
 
   async moveTask(userId: string, taskId: string, dto: MoveTaskDto) {

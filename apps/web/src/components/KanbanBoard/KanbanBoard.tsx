@@ -8,6 +8,7 @@ import {
 import { useBoards } from "../../features/boards/hooks/useBoards";
 import { useCreateTaskMutation } from "../../hooks/useCreateTaskMutation";
 import { useTaskStatusMutation } from "../../hooks/useTaskStatusMutation";
+import { useUpdateTaskMutation } from "../../hooks/useUpdateTaskMutation";
 import { KanbanBoardColumn } from "../KanbanBoardColumn";
 import { TaskFilters } from "../TaskFilters";
 import styles from "./KanbanBoard.module.css";
@@ -41,6 +42,7 @@ interface BoardContentProps {
 
 function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
   const createTaskMutation = useCreateTaskMutation();
+  const updateTaskMutation = useUpdateTaskMutation();
   const { tasks, pendingTaskIds, taskErrors, changeTaskStatus } =
     useTaskStatusMutation(initialTasks, columnIdsByStatus);
 
@@ -127,6 +129,9 @@ function BoardContent({ initialTasks, columnIdsByStatus }: BoardContentProps) {
                 columnId: columnIdsByStatus[column.status],
               });
             }}
+            onUpdateTask={async (taskId, request) => {
+              await updateTaskMutation.mutateAsync({ taskId, request });
+            }}
             onStatusChange={changeTaskStatus}
             onDragStart={handleDragStart}
             onDropTask={handleDropTask}
@@ -159,6 +164,8 @@ export function KanbanBoard() {
       id: task.id,
       title: task.title,
       assignee: "Unassigned",
+      description: task.description,
+      priority: task.priority,
       status: column.key,
       columnId: task.columnId,
       position: task.position,

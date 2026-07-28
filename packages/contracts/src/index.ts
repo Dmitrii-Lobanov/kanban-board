@@ -27,6 +27,13 @@ export type CreateTaskRequest = {
   priority?: "LOW" | "MEDIUM" | "HIGH";
 };
 
+export type UpdateTaskRequest = {
+  title: string;
+  description?: string | null;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  expectedVersion: number;
+};
+
 export type ColumnResponse = {
   id: string;
   title: string;
