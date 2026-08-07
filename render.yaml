@@ -11,17 +11,8 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: kanban-board-db
-          property: connectionString
+        sync: false
       - key: CLERK_SECRET_KEY
         sync: false
       - key: CLERK_AUTHORIZED_PARTIES
         sync: false
-
-databases:
-  - name: kanban-board-db
-    plan: free
-    databaseName: kanban
-    user: kanban
-    postgresMajorVersion: "17"

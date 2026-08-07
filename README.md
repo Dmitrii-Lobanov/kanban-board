@@ -44,7 +44,7 @@ NestJS + Fastify (Render)
   |
   | Prisma
   v
-PostgreSQL (Render)
+PostgreSQL (Prisma Postgres)
 ```
 
 The monorepo is organized as follows:
@@ -119,6 +119,9 @@ VITE_CLERK_PUBLISHABLE_KEY="your_clerk_publishable_key"
 
 Never commit real secret keys. Vite variables are included in the browser bundle, so only the Clerk publishable key belongs in `VITE_*` configuration.
 
+Local development uses the Docker PostgreSQL URL above. Production uses a separate
+Prisma Postgres connection string configured only as Render's `DATABASE_URL` secret.
+
 ### 3. Start PostgreSQL and apply migrations
 
 ```bash
@@ -179,7 +182,8 @@ TEST_DATABASE_URL='postgresql://kanban:kanban@localhost:5434/kanban_test?schema=
 ## Deployment
 
 - The React application is built and hosted by Vercel.
-- The NestJS API and PostgreSQL database are hosted by Render.
+- The NestJS API is hosted by Render.
+- The production PostgreSQL database is hosted by Prisma Postgres.
 - Render applies committed Prisma migrations when the service starts.
 - The deployed frontend origin is explicitly allowed by both CORS and Clerk token verification.
 - The portfolio demo uses matching Clerk development keys on Vercel and Render; a custom-domain deployment can switch to Clerk production keys without application code changes.
