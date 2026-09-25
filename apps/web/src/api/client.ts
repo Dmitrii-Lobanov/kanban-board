@@ -1,10 +1,8 @@
 import { ApiError } from "./api-error";
 
-const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
-
-if (!apiUrl) {
-  throw new Error("VITE_API_URL is not configured.");
-}
+const apiUrl =
+  import.meta.env.VITE_API_URL ??
+  (import.meta.env.PROD ? "/api" : "http://localhost:3000");
 
 export async function apiRequest(
   path: string,

@@ -5,11 +5,9 @@ A production-deployed Kanban application demonstrating authenticated data access
 ## Live demo
 
 - Web: https://kanban-board-psi-taupe.vercel.app
-- API health: https://kanban-board-api-xdda.onrender.com/health
+- API health: https://kanban-board-psi-taupe.vercel.app/api/health
 - Repository: https://github.com/Dmitrii-Lobanov/kanban-board
 - [Related Medium article](https://medium.com/@dmitriilobanov3/frontend-system-design-in-practice-building-a-reliable-kanban-board-in-react-9dc9f488a69f)
-
-The API runs on Render's free tier, so its first request after inactivity may take several seconds.
 
 > The public demo intentionally uses a Clerk development instance because Clerk
 > production instances require a custom domain with configurable DNS records,
@@ -27,7 +25,7 @@ The API runs on Render's free tier, so its first request after inactivity may ta
 - PostgreSQL persistence through Prisma migrations
 - Shared TypeScript API contracts
 - Unit, component, API integration, and database integration tests
-- GitHub Actions CI and separate frontend/API deployments
+- GitHub Actions CI and a unified Vercel deployment
 
 ## Architecture
 
@@ -38,9 +36,9 @@ Browser
   v
 React + Vite (Vercel)
   |
-  | authenticated REST requests
+  | same-origin authenticated REST requests
   v
-NestJS + Fastify (Render)
+NestJS API (Vercel Function)
   |
   | Prisma
   v
@@ -73,11 +71,11 @@ The frontend uses these stable keys for behavior and treats column titles as dis
 | Area           | Technology                                              |
 | -------------- | ------------------------------------------------------- |
 | Frontend       | React 19, TypeScript, Vite, TanStack Query, CSS Modules |
-| Backend        | NestJS, Fastify, TypeScript                             |
+| Backend        | NestJS, Fastify/Express, TypeScript                     |
 | Data           | PostgreSQL, Prisma                                      |
 | Authentication | Clerk                                                   |
 | Testing        | Jest, Vitest, React Testing Library                     |
-| Delivery       | GitHub Actions, Vercel, Render, Docker Compose          |
+| Delivery       | GitHub Actions, Vercel, Docker Compose                  |
 
 ## Run locally
 
@@ -120,7 +118,7 @@ VITE_CLERK_PUBLISHABLE_KEY="your_clerk_publishable_key"
 Never commit real secret keys. Vite variables are included in the browser bundle, so only the Clerk publishable key belongs in `VITE_*` configuration.
 
 Local development uses the Docker PostgreSQL URL above. Production uses a separate
-Prisma Postgres connection string configured only as Render's `DATABASE_URL` secret.
+Prisma Postgres connection string configured only as Vercel's `DATABASE_URL` secret.
 
 ### 3. Start PostgreSQL and apply migrations
 
@@ -181,12 +179,11 @@ TEST_DATABASE_URL='postgresql://kanban:kanban@localhost:5434/kanban_test?schema=
 
 ## Deployment
 
-- The React application is built and hosted by Vercel.
-- The NestJS API is hosted by Render.
+- The React application and NestJS API are deployed together on Vercel.
+- Production API requests use the same origin under `/api/*`.
 - The production PostgreSQL database is hosted by Prisma Postgres.
-- Render applies committed Prisma migrations when the service starts.
-- The deployed frontend origin is explicitly allowed by both CORS and Clerk token verification.
-- The portfolio demo uses matching Clerk development keys on Vercel and Render; a custom-domain deployment can switch to Clerk production keys without application code changes.
+- Prisma Client is generated during dependency installation; committed migrations are applied separately with `prisma migrate deploy`.
+- The portfolio demo uses matching Clerk development keys in the Vercel frontend and API function; a custom-domain deployment can switch to Clerk production keys without application code changes.
 
 Deployment secrets are configured in the hosting dashboards and are not stored in this repository.
 
