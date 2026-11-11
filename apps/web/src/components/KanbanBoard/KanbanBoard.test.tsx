@@ -20,7 +20,6 @@ async function chooseSelectOption(trigger: HTMLElement, name: string) {
 
   const option = await screen.findByRole("option", {
     name,
-    exact: true,
   });
 
   fireEvent.keyDown(option, { key: "Enter" });
