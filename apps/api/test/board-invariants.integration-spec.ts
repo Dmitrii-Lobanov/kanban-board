@@ -23,7 +23,7 @@ function createBoard(): BoardResponse {
         boardId: 'board-1',
         createdAt: timestamp,
         updatedAt: timestamp,
-        tasks: [0, 1, 2].map(position => ({
+        tasks: [0, 1, 2].map((position) => ({
           id: `task-${position}`,
           title: `Task ${position}`,
           description: null,
@@ -52,7 +52,7 @@ describe('board invariant assertions', () => {
 
   it('accepts an empty column', () => {
     const board = createBoard();
-    board.columns[0]!.tasks = [];
+    board.columns[0].tasks = [];
 
     expect(() => assertBoardInvariants(board)).not.toThrow();
   });
@@ -65,7 +65,7 @@ describe('board invariant assertions', () => {
   ])('rejects %s', (_label, positions) => {
     const board = createBoard();
 
-    board.columns[0]!.tasks.forEach((task, index) => {
+    board.columns[0].tasks.forEach((task, index) => {
       task.position = positions[index]!;
     });
 
@@ -74,23 +74,21 @@ describe('board invariant assertions', () => {
 
   it('rejects a duplicated task identity', () => {
     const board = createBoard();
-    board.columns[0]!.tasks[1]!.id = 'task-0';
+    board.columns[0].tasks[1].id = 'task-0';
 
     expect(() => assertBoardInvariants(board)).toThrow('duplicate task');
   });
 
   it('rejects an inconsistent task location', () => {
     const board = createBoard();
-    board.columns[0]!.tasks[0]!.columnId = 'another-column';
+    board.columns[0].tasks[0].columnId = 'another-column';
 
-    expect(() => assertBoardInvariants(board)).toThrow(
-      'inconsistent column',
-    );
+    expect(() => assertBoardInvariants(board)).toThrow('inconsistent column');
   });
 
   it('rejects a column belonging to another board', () => {
     const board = createBoard();
-    board.columns[0]!.boardId = 'another-board';
+    board.columns[0].boardId = 'another-board';
 
     expect(() => assertBoardInvariants(board)).toThrow(
       'belongs to another board',
@@ -99,7 +97,7 @@ describe('board invariant assertions', () => {
 
   it('rejects an invalid task version', () => {
     const board = createBoard();
-    board.columns[0]!.tasks[0]!.version = 0;
+    board.columns[0].tasks[0].version = 0;
 
     expect(() => assertBoardInvariants(board)).toThrow('invalid version');
   });

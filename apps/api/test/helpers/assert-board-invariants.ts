@@ -28,10 +28,7 @@ export function assertBoardInvariants(board: BoardResponse): void {
     const positions: number[] = [];
 
     for (const task of column.tasks) {
-      requireInvariant(
-        !taskIds.has(task.id),
-        `duplicate task ${task.id}`,
-      );
+      requireInvariant(!taskIds.has(task.id), `duplicate task ${task.id}`);
       taskIds.add(task.id);
 
       requireInvariant(
