@@ -161,4 +161,58 @@ describe('shared board access', () => {
     expect(saved.priority).toBe(original.priority);
     expect(saved.version).toBe(original.version + 1);
   });
+
+  it('baseline: retrying a committed move returns a conflict', async () => {
+    const f = currentFixture();
+    const original = f.tasks[0];
+
+    const request = {
+      columnId: f.columns.progress.id,
+      position: 0,
+      expectedVersion: original.version,
+    };
+
+    // The server commits. Deliberately discard its response to model
+    // the client receiving no acknowledgement.
+    await tasks.moveTask(f.alice.id, original.id, request);
+
+    const readBoardTasks = () =>
+      prisma.task.findMany({
+        where: { column: { boardId: f.board.id } },
+        orderBy: { id: 'asc' },
+      });
+
+    // This database read is a test observation, not client knowledge.
+    const afterCommit = await readBoardTasks();
+    const committedTask = afterCommit.find((task) => task.id === original.id);
+
+    expect(committedTask).toMatchObject({
+      columnId: f.columns.progress.id,
+      position: 0,
+      version: original.version + 1,
+    });
+
+    // Alice retries with exactly the original payload.
+    await expect(
+      tasks.moveTask(f.alice.id, original.id, request),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    // The retry must not alter any card, including shifted neighbors.
+    expect(await readBoardTasks()).toEqual(afterCommit);
+
+    const visibleBoards = await boards.findAll(f.alice.id);
+    const board = visibleBoards.find((item) => item.id === f.board.id);
+
+    if (!board) {
+      throw new Error('Fixture board is missing.');
+    }
+
+    assertBoardInvariants(board);
+
+    expect(
+      board.columns
+        .flatMap((column) => column.tasks.map((task) => task.id))
+        .sort(),
+    ).toEqual(f.tasks.map((task) => task.id).sort());
+  });
 });
