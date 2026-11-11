@@ -15,6 +15,17 @@ import { getBoards } from "../../api/boards";
 import { createTask, deleteTask, moveTask, updateTask } from "../../api/tasks";
 import { KanbanBoard } from "./KanbanBoard";
 
+async function chooseSelectOption(trigger: HTMLElement, name: string) {
+  fireEvent.keyDown(trigger, { key: "ArrowDown" });
+
+  const option = await screen.findByRole("option", {
+    name,
+    exact: true,
+  });
+
+  fireEvent.keyDown(option, { key: "Enter" });
+}
+
 vi.mock("@clerk/react", () => ({
   useAuth: () => ({
     getToken: vi.fn().mockResolvedValue("test-token"),
@@ -254,13 +265,13 @@ describe("KanbanBoard", () => {
       within(doneColumn).getByLabelText("Description"),
       "Publish the final case study"
     );
-    await user.selectOptions(
-      within(doneColumn).getByLabelText("Priority"),
-      "HIGH"
+    await chooseSelectOption(
+      within(doneColumn).getByRole("combobox", { name: "Priority" }),
+      "High"
     );
-    await user.selectOptions(
-      within(doneColumn).getByLabelText("Assignee"),
-      "user-1"
+    await chooseSelectOption(
+      within(doneColumn).getByRole("combobox", { name: "Assignee" }),
+      "Dmitrii"
     );
     await user.click(
       within(doneColumn).getByRole("button", { name: "Add task" })
@@ -303,9 +314,9 @@ describe("KanbanBoard", () => {
       within(taskCard!).getByLabelText("Description"),
       "Ready for review"
     );
-    await user.selectOptions(
-      within(taskCard!).getByLabelText("Priority"),
-      "HIGH"
+    await chooseSelectOption(
+      within(taskCard!).getByRole("combobox", { name: "Priority" }),
+      "High"
     );
     await user.click(
       within(taskCard!).getByRole("button", { name: "Save changes" })

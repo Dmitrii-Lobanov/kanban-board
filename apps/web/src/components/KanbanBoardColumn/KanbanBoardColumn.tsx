@@ -5,7 +5,7 @@ import type {
   WorkspaceMemberResponse,
 } from "@kanban-board/contracts";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
-import selectStyles from "../SelectControl/SelectControl.module.css";
+import { TaskDetailSelects } from "../SelectControl/TaskDetailSelects";
 import { TaskCard } from "../TaskCard";
 import styles from "./KanbanBoardColumn.module.css";
 
@@ -172,49 +172,14 @@ export function KanbanBoardColumn({
             disabled={isCreating}
             onChange={event => setNewTaskDescription(event.target.value)}
           />
-          <label
-            className={styles.createLabel}
-            htmlFor={`${headingId}-priority`}
-          >
-            Priority
-          </label>
-          <select
-            id={`${headingId}-priority`}
-            className={`${styles.createInput} ${selectStyles.select}`}
-            value={newTaskPriority}
+          <TaskDetailSelects
+            priority={newTaskPriority}
+            assigneeId={newTaskAssigneeId}
+            members={members}
             disabled={isCreating}
-            onChange={event => {
-              const value = event.target.value;
-
-              if (value === "LOW" || value === "MEDIUM" || value === "HIGH") {
-                setNewTaskPriority(value);
-              }
-            }}
-          >
-            <option value="LOW">Low</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="HIGH">High</option>
-          </select>
-          <label
-            className={styles.createLabel}
-            htmlFor={`${headingId}-assignee`}
-          >
-            Assignee
-          </label>
-          <select
-            id={`${headingId}-assignee`}
-            className={`${styles.createInput} ${selectStyles.select}`}
-            value={newTaskAssigneeId}
-            disabled={isCreating}
-            onChange={event => setNewTaskAssigneeId(event.target.value)}
-          >
-            <option value="">Unassigned</option>
-            {members.map(member => (
-              <option key={member.id} value={member.id}>
-                {member.displayName ?? member.email ?? "Workspace member"}
-              </option>
-            ))}
-          </select>
+            onPriorityChange={setNewTaskPriority}
+            onAssigneeChange={setNewTaskAssigneeId}
+          />
           <div className={styles.createActions}>
             <button type="submit" disabled={isCreating}>
               {isCreating ? "Adding…" : "Add task"}

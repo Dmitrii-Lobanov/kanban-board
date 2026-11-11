@@ -5,7 +5,7 @@ import type {
 import { type DragEvent, type FormEvent, useId, useState } from "react";
 import { ApiError } from "../../api/api-error";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
-import selectStyles from "../SelectControl/SelectControl.module.css";
+import { TaskDetailSelects } from "../SelectControl/TaskDetailSelects";
 import styles from "./TaskCard.module.css";
 
 interface TaskCardProps {
@@ -183,41 +183,14 @@ export function TaskCard({
               onChange={event => setDescription(event.target.value)}
             />
           </label>
-          <label>
-            <span>Priority</span>
-            <select
-              className={selectStyles.select}
-              value={priority}
-              disabled={isSaving}
-              onChange={event => {
-                const value = event.target.value;
-
-                if (value === "LOW" || value === "MEDIUM" || value === "HIGH") {
-                  setPriority(value);
-                }
-              }}
-            >
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-            </select>
-          </label>
-          <label>
-            <span>Assignee</span>
-            <select
-              className={selectStyles.select}
-              value={assigneeId}
-              disabled={isSaving}
-              onChange={event => setAssigneeId(event.target.value)}
-            >
-              <option value="">Unassigned</option>
-              {members.map(member => (
-                <option key={member.id} value={member.id}>
-                  {member.displayName ?? member.email ?? "Workspace member"}
-                </option>
-              ))}
-            </select>
-          </label>
+          <TaskDetailSelects
+            priority={priority}
+            assigneeId={assigneeId}
+            members={members}
+            disabled={isSaving}
+            onPriorityChange={setPriority}
+            onAssigneeChange={setAssigneeId}
+          />
           <div className={styles.editActions}>
             <button type="submit" disabled={isSaving}>
               {isSaving ? "Saving…" : "Save changes"}
