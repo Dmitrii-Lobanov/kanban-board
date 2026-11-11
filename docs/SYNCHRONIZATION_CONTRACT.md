@@ -38,6 +38,7 @@ when Alice moves a card:
 - An uncertain result remains distinguishable from a rejection.
 
 Forbidden:
+
 - Bob receives an uncommitted move as confirmed state.
 - Alice permanently displays a rejected move as confirmed.
 
@@ -51,6 +52,7 @@ when Alice changes its title and Bob changes its priority:
 - Unchanged form fields are not implicitly written.
 
 Forbidden:
+
 - One edit silently restores the other field's old value.
 - An unrelated field change alone causes a conflict.
 
@@ -66,30 +68,105 @@ Given both clients edit the title from the same baseline:
   preconditions; that attempt can conflict again.
 
 Forbidden:
+
 - Automatic overwrite of the winning value.
 - Silent replacement of the draft's baseline during refresh.
 - Loss of rejected input while the page remains open.
 
 ## S4 — Move cards concurrently
 
-When Alice and Bob move cards concurrently:
+Status: chosen target policy; not implemented or proven.
+
+### Placement intent
+
+A move identifies:
+
+- The card being moved.
+- Its expected move revision.
+- The destination column.
+- An anchor card to place it immediately before, or null to append.
+
+The server interprets placement against the current committed order
+when it serializes the move, excluding the moving card itself.
+
+Numeric positions remain an internal storage representation.
+
+### Preconditions
+
+- The user must have write access to the board.
+- The moving card and destination column must exist on that board.
+- The moving card's move revision must match the expected revision.
+- A non-null anchor must exist in the destination column.
+- A card cannot use itself as its anchor.
+
+Invalid preconditions reject the operation without partial changes.
+
+### Concurrent changes
+
+- Moves are applied in a server-defined serialized order.
+- The order is not determined by browser timestamps.
+- Different-card moves may both succeed if their preconditions hold.
+- Two distinct moves of the same card from the same move revision
+  cannot both succeed.
+- Editing a title or priority does not invalidate a move revision.
+- Shifting a card's numeric position because another card moved does
+  not invalidate its move revision.
+- Each accepted distinct move increments the moved card's move revision,
+  even if the resulting placement is unchanged.
+- Retrying the same operation identity returns its recorded outcome;
+  it does not increment the revision again.
+
+### Anchor changes
+
+- If the anchor moved within the destination column, use its current
+  position.
+- If the anchor was deleted or moved to another column, reject the move.
+- Never silently append when an explicit anchor is unavailable.
+- A null anchor means append to the current end of the column.
+
+Placement is guaranteed at the moment the move commits.
+Later accepted operations may change adjacency.
+
+### Examples
+
+Starting destination: [C]
+
+Alice moves A before C.
+Bob moves B before C.
+
+If Alice's move is serialized first:
+
+- After Alice: [A, C]
+- After Bob: [A, B, C]
+
+If Bob's move is serialized first:
+
+- After Bob: [B, C]
+- After Alice: [B, A, C]
+
+Both final orders are valid.
+All caught-up clients must display the actual committed order.
+
+If Alice and Bob instead move the same card from the same move revision:
+
+- One distinct move succeeds.
+- The other conflicts.
+- The rejected intent remains available for explicit retry after refresh.
+
+### Structural guarantees
 
 - Each committed move is atomic.
 - Every live card has exactly one location.
-- Column ordering remains valid.
-- Outcomes follow a documented server ordering and move policy.
-- Connected clients eventually display the committed order.
-
-Still to decide before implementation:
-- Whether placement means an absolute index or a position relative
-  to another card.
-- What happens when a placement anchor moves or disappears.
-- Whether competing moves of the same card conflict.
-- Which stale moves can safely be accepted.
+- Column positions remain unique and contiguous from zero.
+- Moves preserve the set of live card IDs.
+- Rejected moves produce no partial ordering changes.
 
 Forbidden:
+
 - Duplicate cards, missing live cards, or invalid committed positions.
 - Silently treating an ordering failure as a successful move.
+- Automatically replacing a rejected move's preconditions and retrying
+  it as if the user had approved the new state.
 
 ## S5 — Disconnect and recover
 
@@ -104,11 +181,13 @@ Given Alice disconnects while Bob continues working:
   from confirmed server state.
 
 Initial scope:
+
 - Draft editing remains available during disconnection.
 - New mutation submissions are disabled while known to be disconnected.
 - An operation already in flight may still have committed.
 
 Forbidden:
+
 - Replacing pending input silently with a fetched snapshot.
 - Treating a reconnect as permission to repeat effects blindly.
 
@@ -124,6 +203,7 @@ Given a move commits and its response is lost:
 - The outcome remains recoverable after a backend restart.
 
 Forbidden:
+
 - A second committed effect caused by the retry.
 - Claiming the original operation failed merely because its response
   did not arrive.
@@ -139,11 +219,13 @@ Given Bob's deletion commits before Alice's edit can be accepted:
 - The deleted card disappears from confirmed board state.
 
 If the edit commits first:
+
 - The deletion follows its own documented conflict preconditions.
 - A stale deletion may be rejected.
 - The ordering of accepted operations remains inspectable.
 
 Forbidden:
+
 - Implicit upsert or resurrection of the deleted card.
 - Silent loss of Alice's draft when the card component disappears.
 
@@ -163,6 +245,7 @@ Forbidden:
 ## Evidence policy
 
 Each scenario will be marked as:
+
 - Not tested.
 - Reproduced failure.
 - Covered and passing under a stated test workload.
