@@ -364,4 +364,20 @@ describe('shared board access', () => {
 
     expect(actualIds).toEqual(expectedIds);
   });
+
+  it('initializes all field and move revisions to one', () => {
+    const f = currentFixture();
+
+    expect(f.tasks).toHaveLength(3);
+
+    for (const task of f.tasks) {
+      expect(task).toMatchObject({
+        titleRevision: 1,
+        descriptionRevision: 1,
+        priorityRevision: 1,
+        assigneeRevision: 1,
+        moveRevision: 1,
+      });
+    }
+  });
 });

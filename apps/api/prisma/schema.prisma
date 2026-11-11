@@ -26,15 +26,15 @@ enum ColumnKey {
 }
 
 model User {
-  id           String            @id @default(cuid())
-  clerkId      String?           @unique
-  email        String?           @unique
-  displayName  String?
-  passwordHash String?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  sessions     Session[]
-  memberships  WorkspaceMember[]
+  id            String            @id @default(cuid())
+  clerkId       String?           @unique
+  email         String?           @unique
+  displayName   String?
+  passwordHash  String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  sessions      Session[]
+  memberships   WorkspaceMember[]
   assignedTasks Task[]            @relation("TaskAssignee")
 }
 
@@ -101,18 +101,23 @@ model Column {
 }
 
 model Task {
-  id          String       @id @default(cuid())
-  title       String
-  description String?
-  priority    TaskPriority @default(MEDIUM)
-  position    Int
-  version     Int          @default(1)
-  columnId    String
-  assigneeId  String?
-  column      Column       @relation(fields: [columnId], references: [id], onDelete: Cascade)
-  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id                  String       @id @default(cuid())
+  title               String
+  description         String?
+  priority            TaskPriority @default(MEDIUM)
+  position            Int
+  version             Int          @default(1)
+  titleRevision       Int          @default(1)
+  descriptionRevision Int          @default(1)
+  priorityRevision    Int          @default(1)
+  assigneeRevision    Int          @default(1)
+  moveRevision        Int          @default(1)
+  columnId            String
+  assigneeId          String?
+  column              Column       @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  assignee            User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
   @@unique([columnId, position])
   @@index([columnId])

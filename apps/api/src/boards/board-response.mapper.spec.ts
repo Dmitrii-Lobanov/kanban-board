@@ -19,7 +19,13 @@ describe('mapBoardResponse', () => {
       workspaceId: 'workspace-1',
       createdAt: timestamp,
       updatedAt: timestamp,
-      workspace: { members: [] },
+      workspace: {
+        id: 'workspace-1',
+        name: 'Test workspace',
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        members: [],
+      },
       columns: [
         {
           id: 'column-1',
@@ -37,6 +43,11 @@ describe('mapBoardResponse', () => {
               priority: TaskPriority.MEDIUM,
               position: 0,
               version: 1,
+              titleRevision: 1,
+              descriptionRevision: 1,
+              priorityRevision: 1,
+              assigneeRevision: 1,
+              moveRevision: 1,
               columnId: 'column-1',
               createdAt: timestamp,
               updatedAt: timestamp,
