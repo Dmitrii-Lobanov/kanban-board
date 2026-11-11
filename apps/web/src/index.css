@@ -1,4 +1,25 @@
 :root {
+  --control-height: 2.5rem;
+  --control-radius: 0.625rem;
+  --control-padding-x: 0.75rem;
+
+  --control-background: #ffffff;
+  --control-background-hover: #f8fafc;
+  --control-background-disabled: #f1f5f9;
+
+  --control-text: #202939;
+  --control-text-muted: #667085;
+  --control-text-disabled: #64748b;
+
+  --control-border: #cfd7e5;
+  --control-border-hover: #94a3b8;
+  --control-focus: #4f46e5;
+  --control-error: #b42318;
+
+  --control-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+  --control-popup-shadow:
+    0 12px 32px rgb(15 23 42 / 12%), 0 2px 8px rgb(15 23 42 / 6%);
+
   font-family:
     Inter,
     ui-sans-serif,
