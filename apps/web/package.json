@@ -17,6 +17,7 @@
   "dependencies": {
     "@clerk/react": "^6.12.8",
     "@kanban-board/contracts": "*",
+    "@radix-ui/react-select": "^2.4.1",
     "@tanstack/react-query": "^5.101.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

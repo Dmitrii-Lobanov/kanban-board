@@ -1,3 +1,5 @@
+import { useId } from "react";
+import { SelectControl } from "../SelectControl/SelectControl";
 import styles from "./TaskFilters.module.css";
 
 interface TaskFiltersProps {
@@ -15,6 +17,9 @@ export function TaskFilters({
   onSearchQueryChange,
   onAssigneeFilterChange,
 }: TaskFiltersProps) {
+  const assigneeId = useId();
+  const assigneeLabelId = `${assigneeId}-label`;
+
   return (
     <section className={styles.filters} aria-label="Task filters">
       <label className={styles.field}>
@@ -30,33 +35,29 @@ export function TaskFilters({
         />
       </label>
 
-      <label className={styles.field}>
-        <span className={styles.label}>Assignee</span>
+      <div className={styles.field}>
+        <label
+          id={assigneeLabelId}
+          htmlFor={assigneeId}
+          className={styles.label}
+        >
+          Assignee
+        </label>
 
-        <span className={styles.selectControl}>
-          <select
-            value={assigneeFilter}
-            onChange={event => {
-              onAssigneeFilterChange(event.target.value);
-            }}
-          >
-            <option value="all">All assignees</option>
-
-            {assignees.map(assignee => (
-              <option key={assignee} value={assignee}>
-                {assignee}
-              </option>
-            ))}
-          </select>
-          <svg
-            className={styles.selectChevron}
-            viewBox="0 0 20 20"
-            aria-hidden="true"
-          >
-            <path d="m6 8 4 4 4-4" />
-          </svg>
-        </span>
-      </label>
+        <SelectControl
+          id={assigneeId}
+          labelledBy={assigneeLabelId}
+          value={assigneeFilter}
+          onValueChange={onAssigneeFilterChange}
+          options={[
+            { value: "all", label: "All assignees" },
+            ...assignees.map(assignee => ({
+              value: assignee,
+              label: assignee,
+            })),
+          ]}
+        />
+      </div>
     </section>
   );
 }
