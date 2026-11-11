@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { BoardsService } from '../src/boards/boards.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TasksService } from '../src/tasks/tasks.service';
@@ -124,5 +124,41 @@ describe('shared board access', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
 
     expect(await readTasks()).toEqual(before);
+  });
+
+  it('baseline: rejects an independent priority edit after a title edit', async () => {
+    const f = currentFixture();
+    const original = f.tasks[0];
+
+    // Both users prepare their edits from the same observed state.
+    const aliceRequest = {
+      title: 'Updated by Alice',
+      description: original.description,
+      priority: original.priority,
+      assigneeId: original.assigneeId,
+      expectedVersion: original.version,
+    };
+
+    const bobRequest = {
+      title: original.title,
+      description: original.description,
+      priority: 'HIGH' as const,
+      assigneeId: original.assigneeId,
+      expectedVersion: original.version,
+    };
+
+    await tasks.updateTask(f.alice.id, original.id, aliceRequest);
+
+    await expect(
+      tasks.updateTask(f.bob.id, original.id, bobRequest),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    const saved = await prisma.task.findUniqueOrThrow({
+      where: { id: original.id },
+    });
+
+    expect(saved.title).toBe('Updated by Alice');
+    expect(saved.priority).toBe(original.priority);
+    expect(saved.version).toBe(original.version + 1);
   });
 });
