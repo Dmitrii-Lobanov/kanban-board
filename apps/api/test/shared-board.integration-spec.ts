@@ -215,4 +215,94 @@ describe('shared board access', () => {
         .sort(),
     ).toEqual(f.tasks.map((task) => task.id).sort());
   });
+
+  it('baseline: overlapping moves leave a gap after a stale position read', async () => {
+    const f = currentFixture();
+    const cardA = f.tasks[0];
+    const cardB = f.tasks[1];
+    const cardC = f.tasks[2];
+    let intercepted = false;
+
+    // Only Alice uses this client. Queries still reach real PostgreSQL.
+    const aliceClient = prisma.$extends({
+      query: {
+        task: {
+          async findFirst({ args, query }) {
+            const snapshot = await query(args);
+
+            if (!intercepted && args.where?.id === cardB.id) {
+              intercepted = true;
+
+              // Alice has read B, but moveTask has not received that
+              // snapshot yet. Let Bob finish moving A in between.
+              await tasks.moveTask(f.bob.id, cardA.id, {
+                columnId: f.columns.done.id,
+                position: 0,
+                expectedVersion: cardA.version,
+              });
+
+              const currentB = await prisma.task.findUniqueOrThrow({
+                where: { id: cardB.id },
+              });
+
+              expect(currentB.position).toBe(0);
+              expect(currentB.version).toBe(cardB.version);
+            }
+
+            // Return Alice's original snapshot, not a fresh read.
+            return snapshot;
+          },
+        },
+      },
+    });
+
+    // Test-only adapter: TasksService uses Prisma query methods, while
+    // the extended client lacks PrismaService's Nest lifecycle methods.
+    const aliceTasks = new TasksService(
+      aliceClient as unknown as PrismaService,
+    );
+
+    await aliceTasks.moveTask(f.alice.id, cardB.id, {
+      columnId: f.columns.progress.id,
+      position: 0,
+      expectedVersion: cardB.version,
+    });
+
+    expect(intercepted).toBe(true);
+
+    const savedTasks = await prisma.task.findMany({
+      where: { column: { boardId: f.board.id } },
+    });
+
+    // No card disappeared or was duplicated.
+    expect(savedTasks.map((task) => task.id).sort()).toEqual(
+      f.tasks.map((task) => task.id).sort(),
+    );
+
+    expect(savedTasks.find((task) => task.id === cardA.id)).toMatchObject({
+      columnId: f.columns.done.id,
+      position: 0,
+    });
+    expect(savedTasks.find((task) => task.id === cardB.id)).toMatchObject({
+      columnId: f.columns.progress.id,
+      position: 0,
+    });
+
+    // This is the defect: the only remaining Todo card is at position 1.
+    expect(savedTasks.find((task) => task.id === cardC.id)).toMatchObject({
+      columnId: f.columns.todo.id,
+      position: 1,
+    });
+
+    const visibleBoards = await boards.findAll(f.alice.id);
+    const board = visibleBoards.find((item) => item.id === f.board.id);
+
+    if (!board) {
+      throw new Error('Fixture board is missing.');
+    }
+
+    expect(() => assertBoardInvariants(board)).toThrow(
+      'positions must be unique and contiguous from zero',
+    );
+  });
 });
