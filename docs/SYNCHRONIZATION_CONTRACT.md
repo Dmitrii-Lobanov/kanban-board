@@ -170,26 +170,96 @@ Forbidden:
 
 ## S5 — Disconnect and recover
 
-Given Alice disconnects while Bob continues working:
+Status: chosen target policy; not implemented or proven.
 
-- Alice sees that her connection is unavailable.
-- Existing pending operations and drafts remain in memory.
-- On reconnect, access is checked again.
-- Alice obtains missing committed changes or a fresh snapshot.
-- Uncertain operations are reconciled using their original identities.
-- Local drafts and unresolved operations are preserved separately
-  from confirmed server state.
+### Connection states
 
-Initial scope:
+- Connected: the client has established synchronization and caught up
+  to the server's recovery boundary.
+- Disconnected: synchronization is unavailable.
+- Recovering: connectivity has returned, but catch-up is incomplete.
+- Access blocked: authentication or authorization prevents recovery.
 
-- Draft editing remains available during disconnection.
-- New mutation submissions are disabled while known to be disconnected.
-- An operation already in flight may still have committed.
+Connected does not guarantee that the next request will succeed.
+Browser network indicators alone do not establish server availability.
 
-Forbidden:
+### While disconnected or recovering
 
+- Display the last confirmed board with a visible connection status.
+- Keep drafts and unresolved operations in memory.
+- Allow users to continue editing local drafts.
+- Disable submission of new mutations.
+- Do not create an offline queue of new operations.
+- Label unresolved optimistic changes as unconfirmed.
+- Do not treat a disconnected request as a definitive rejection.
+
+Closing or reloading the page can lose drafts and pending-operation
+tracking. Persistence across browser restarts is out of scope.
+
+### Operation outcomes
+
+- Pending: submitted, with no definitive outcome yet.
+- Uncertain: communication failed before an outcome was established.
+- Confirmed: evidence identifies this operation as committed.
+- Rejected: a definitive server response establishes that this
+  operation was not applied.
+
+A timeout, aborted request, or generic server error is not sufficient
+evidence of rejection.
+
+An operation can be confirmed through its response, recorded outcome,
+or a committed event carrying its identity.
+
+### Recovery procedure
+
+1. Re-establish authentication and verify current board access.
+2. Obtain missing changes or a consistent replacement snapshot.
+3. Reconcile uncertain operations using their original identities.
+4. Retry only within the server's documented deduplication window,
+   using the original payload and original preconditions.
+5. Apply any further changes produced during reconciliation.
+6. Resume new mutation submissions after catching up.
+
+Transport retries may happen automatically.
+Changing an operation's intent or preconditions requires explicit
+user action and a new operation identity.
+
+If outcome retention has expired, do not blindly resubmit an uncertain
+operation. Explain that its original outcome cannot be established
+and require manual review.
+
+### Preserving user work
+
+- Keep drafts separately from confirmed server state.
+- A snapshot refresh must not discard drafts.
+- A deleted card must not erase its locally retained draft.
+- A conflict retains the rejected intent for explicit resolution.
+- Access loss stops subscriptions, replay, and mutation retries.
+- Access loss does not authorize further reads of server state.
+
+### Recovery examples
+
+Commit followed by connection loss:
+
+- The server commits Alice's move.
+- Alice receives no acknowledgement and marks it uncertain.
+- Recovery finds the recorded outcome.
+- Alice confirms the original move without applying it again.
+
+Request never reaches the server:
+
+- Alice marks the submitted move uncertain.
+- Recovery retries the original operation safely.
+- The server evaluates its original preconditions against current state.
+- It either commits the move or rejects it explicitly.
+
+### Forbidden outcomes
+
+- Treating a timeout as proof that nothing committed.
 - Replacing pending input silently with a fetched snapshot.
-- Treating a reconnect as permission to repeat effects blindly.
+- Retrying with a new identity merely because a response was lost.
+- Silently refreshing preconditions to force a stale operation through.
+- Applying an old acknowledgement over newer confirmed board state.
 
 ## S6 — Commit succeeds but acknowledgement is lost
 
