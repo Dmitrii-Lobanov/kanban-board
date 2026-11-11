@@ -305,4 +305,63 @@ describe('shared board access', () => {
       'positions must be unique and contiguous from zero',
     );
   });
+
+  it('rejects a stale edit without resurrecting a deleted card', async () => {
+    const f = currentFixture();
+    const original = f.tasks[1];
+
+    // Alice prepares her draft before Bob deletes the card.
+    const aliceRequest = {
+      title: 'Alice wants to keep this text',
+      description: original.description,
+      priority: original.priority,
+      assigneeId: original.assigneeId,
+      expectedVersion: original.version,
+    };
+
+    await tasks.deleteTask(f.bob.id, original.id, {
+      expectedVersion: original.version,
+    });
+
+    const readBoardTasks = () =>
+      prisma.task.findMany({
+        where: { column: { boardId: f.board.id } },
+        orderBy: { id: 'asc' },
+      });
+
+    const afterDelete = await readBoardTasks();
+
+    await expect(
+      tasks.updateTask(f.alice.id, original.id, aliceRequest),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(
+      await prisma.task.findUnique({
+        where: { id: original.id },
+      }),
+    ).toBeNull();
+
+    // Rejection must not change any surviving cards.
+    expect(await readBoardTasks()).toEqual(afterDelete);
+
+    const visibleBoards = await boards.findAll(f.alice.id);
+    const board = visibleBoards.find((item) => item.id === f.board.id);
+
+    if (!board) {
+      throw new Error('Fixture board is missing.');
+    }
+
+    assertBoardInvariants(board);
+
+    const actualIds = board.columns
+      .flatMap((column) => column.tasks.map((task) => task.id))
+      .sort();
+
+    const expectedIds = f.tasks
+      .filter((task) => task.id !== original.id)
+      .map((task) => task.id)
+      .sort();
+
+    expect(actualIds).toEqual(expectedIds);
+  });
 });
