@@ -43,6 +43,30 @@ export type UpdateTaskRequest = {
   assigneeId?: string | null;
 };
 
+export type TaskEditableFields = {
+  title: string;
+  description: string | null;
+  priority: TaskResponse["priority"];
+  assigneeId: string | null;
+};
+
+export type TaskFieldRevisions = {
+  [Field in keyof TaskEditableFields]: number;
+};
+
+export type TaskFieldChange<Value> = {
+  value: Value;
+  expectedRevision: number;
+};
+
+export type EditTaskRequest = {
+  changes: {
+    [Field in keyof TaskEditableFields]?: TaskFieldChange<
+      TaskEditableFields[Field]
+    >;
+  };
+};
+
 export type DeleteTaskRequest = {
   expectedVersion: number;
 };
