@@ -30,6 +30,13 @@ function createBoard(): BoardResponse {
           priority: 'MEDIUM' as const,
           position,
           version: 1,
+          fieldRevisions: {
+            title: 1,
+            description: 1,
+            priority: 1,
+            assigneeId: 1,
+          },
+          moveRevision: 1,
           columnId: 'column-1',
           createdAt: timestamp,
           updatedAt: timestamp,

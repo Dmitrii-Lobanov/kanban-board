@@ -43,11 +43,11 @@ describe('mapBoardResponse', () => {
               priority: TaskPriority.MEDIUM,
               position: 0,
               version: 1,
-              titleRevision: 1,
-              descriptionRevision: 1,
-              priorityRevision: 1,
-              assigneeRevision: 1,
-              moveRevision: 1,
+              titleRevision: 2,
+              descriptionRevision: 3,
+              priorityRevision: 4,
+              assigneeRevision: 5,
+              moveRevision: 6,
               columnId: 'column-1',
               createdAt: timestamp,
               updatedAt: timestamp,
@@ -63,6 +63,15 @@ describe('mapBoardResponse', () => {
 
     expect(response.columns[0]?.key).toBe(expectedKey);
     expect(response.createdAt).toBe(timestamp.toISOString());
-    expect(response.columns[0]?.tasks[0]?.priority).toBe('MEDIUM');
+    expect(response.columns[0]?.tasks[0]).toMatchObject({
+      priority: 'MEDIUM',
+      fieldRevisions: {
+        title: 2,
+        description: 3,
+        priority: 4,
+        assigneeId: 5,
+      },
+      moveRevision: 6,
+    });
   });
 });

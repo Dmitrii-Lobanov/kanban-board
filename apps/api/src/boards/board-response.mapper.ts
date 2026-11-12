@@ -64,6 +64,13 @@ export function mapTaskResponse(task: TaskRecord): TaskResponse {
     priority: task.priority,
     position: task.position,
     version: task.version,
+    fieldRevisions: {
+      title: task.titleRevision,
+      description: task.descriptionRevision,
+      priority: task.priorityRevision,
+      assigneeId: task.assigneeRevision,
+    },
+    moveRevision: task.moveRevision,
     columnId: task.columnId,
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),

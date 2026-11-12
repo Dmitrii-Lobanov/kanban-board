@@ -25,6 +25,18 @@ function readNumber(record: Record<string, unknown>, field: string): number {
   return value;
 }
 
+function readRevision(record: Record<string, unknown>, field: string): number {
+  const revision = readNumber(record, field);
+
+  if (!Number.isSafeInteger(revision) || revision < 1) {
+    throw new Error(
+      `Invalid boards response: ${field} must be a positive integer.`
+    );
+  }
+
+  return revision;
+}
+
 function parseColumnKey(value: unknown): ColumnKey {
   switch (value) {
     case "todo":
@@ -80,6 +92,14 @@ export function parseTaskResponse(value: unknown): TaskDto {
     );
   }
 
+  const fieldRevisions = value.fieldRevisions;
+
+  if (!isRecord(fieldRevisions)) {
+    throw new Error(
+      "Invalid boards response: fieldRevisions must be an object."
+    );
+  }
+
   return {
     id: readString(value, "id"),
     title: readString(value, "title"),
@@ -87,6 +107,13 @@ export function parseTaskResponse(value: unknown): TaskDto {
     priority: parsePriority(value.priority),
     position: readNumber(value, "position"),
     version: readNumber(value, "version"),
+    fieldRevisions: {
+      title: readRevision(fieldRevisions, "title"),
+      description: readRevision(fieldRevisions, "description"),
+      priority: readRevision(fieldRevisions, "priority"),
+      assigneeId: readRevision(fieldRevisions, "assigneeId"),
+    },
+    moveRevision: readRevision(value, "moveRevision"),
     columnId: readString(value, "columnId"),
     createdAt: readString(value, "createdAt"),
     updatedAt: readString(value, "updatedAt"),

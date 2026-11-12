@@ -15,6 +15,8 @@ export type TaskResponse = {
   priority: "LOW" | "MEDIUM" | "HIGH";
   position: number;
   version: number;
+  fieldRevisions: TaskFieldRevisions;
+  moveRevision: number;
   columnId: string;
   createdAt: string;
   updatedAt: string;
