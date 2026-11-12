@@ -149,10 +149,14 @@ describe('TasksService', () => {
       where: { id: 'task-1', version: 3 },
       data: {
         title: 'Updated task',
+        titleRevision: { increment: 1 },
         description: 'Updated description',
+        descriptionRevision: { increment: 1 },
         priority: TaskPriority.HIGH,
-        version: { increment: 1 },
+        priorityRevision: { increment: 1 },
         assigneeId: null,
+        assigneeRevision: { increment: 1 },
+        version: { increment: 1 },
       },
     });
     expect(response).toMatchObject({ title: 'Updated task', version: 4 });

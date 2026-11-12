@@ -380,4 +380,54 @@ describe('shared board access', () => {
       });
     }
   });
+
+  it('accepts independent edits and rejects an entire patch with a stale field', async () => {
+    const f = currentFixture();
+    const original = f.tasks[0];
+
+    await tasks.editTask(f.alice.id, original.id, {
+      changes: {
+        title: { value: 'Updated by Alice', expectedRevision: 1 },
+      },
+    });
+
+    const saved = await tasks.editTask(f.bob.id, original.id, {
+      changes: {
+        priority: { value: 'HIGH', expectedRevision: 1 },
+      },
+    });
+
+    expect(saved).toMatchObject({
+      title: 'Updated by Alice',
+      priority: 'HIGH',
+      version: original.version + 2,
+      fieldRevisions: {
+        title: 2,
+        description: 1,
+        priority: 2,
+        assigneeId: 1,
+      },
+      moveRevision: original.moveRevision,
+    });
+
+    await expect(
+      tasks.editTask(f.bob.id, original.id, {
+        changes: {
+          title: { value: 'Stale title', expectedRevision: 1 },
+          description: { value: 'Must not be saved', expectedRevision: 1 },
+        },
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    const afterConflict = await prisma.task.findUniqueOrThrow({
+      where: { id: original.id },
+    });
+
+    expect(afterConflict).toMatchObject({
+      title: saved.title,
+      description: original.description,
+      descriptionRevision: 1,
+      version: saved.version,
+    });
+  });
 });

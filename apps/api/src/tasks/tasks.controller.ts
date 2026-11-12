@@ -15,6 +15,7 @@ import { ClerkAuthGuard } from '../auth/clerk-auth.guard';
 import { CurrentUserId } from '../auth/current-user-id.decorator';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { DeleteTaskDto } from './dto/delete-task.dto';
+import { parseEditTaskRequest } from './dto/parse-edit-task-request';
 import { MoveTaskDto } from './dto/move-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TasksService } from './tasks.service';
@@ -46,6 +47,19 @@ export class TasksController {
     @Body() dto: MoveTaskDto,
   ) {
     return this.tasksService.moveTask(userId, taskId, dto);
+  }
+
+  @Patch(':taskId/fields')
+  editTask(
+    @CurrentUserId() userId: string,
+    @Param('taskId') taskId: string,
+    @Body() body: unknown,
+  ) {
+    return this.tasksService.editTask(
+      userId,
+      taskId,
+      parseEditTaskRequest(body),
+    );
   }
 
   @Patch(':taskId')

@@ -1,3 +1,4 @@
+import type { EditTaskRequest } from '@kanban-board/contracts';
 import {
   ConflictException,
   Injectable,
@@ -217,10 +218,14 @@ export class TasksService {
       where: { id: task.id, version: dto.expectedVersion },
       data: {
         title: dto.title.trim(),
+        titleRevision: { increment: 1 },
         description: dto.description?.trim() || null,
+        descriptionRevision: { increment: 1 },
         priority: dto.priority,
-        version: { increment: 1 },
+        priorityRevision: { increment: 1 },
         assigneeId: dto.assigneeId ?? null,
+        assigneeRevision: { increment: 1 },
+        version: { increment: 1 },
       },
     });
 
@@ -234,6 +239,92 @@ export class TasksService {
     });
 
     return mapTaskResponse(updatedTask);
+  }
+
+  async editTask(userId: string, taskId: string, { changes }: EditTaskRequest) {
+    const writableTask: PrismaTypes.TaskWhereInput = {
+      id: taskId,
+      column: {
+        board: {
+          workspace: {
+            members: {
+              some: {
+                userId,
+                role: { in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER] },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    return this.prisma.$transaction(async (transaction) => {
+      const task = await transaction.task.findFirst({
+        where: writableTask,
+        select: {
+          id: true,
+          column: { select: { board: { select: { workspaceId: true } } } },
+        },
+      });
+
+      if (!task) {
+        throw new NotFoundException('Task not found.');
+      }
+
+      const { title, description, priority, assigneeId } = changes;
+
+      if (assigneeId) {
+        await this.assertWorkspaceAssignee(
+          transaction,
+          assigneeId.value,
+          task.column.board.workspaceId,
+        );
+      }
+
+      const where: PrismaTypes.TaskWhereInput = { ...writableTask };
+      const data: PrismaTypes.TaskUncheckedUpdateManyInput = {
+        version: { increment: 1 },
+      };
+
+      if (title) {
+        where.titleRevision = title.expectedRevision;
+        data.title = title.value.trim();
+        data.titleRevision = { increment: 1 };
+      }
+
+      if (description) {
+        where.descriptionRevision = description.expectedRevision;
+        data.description = description.value?.trim() || null;
+        data.descriptionRevision = { increment: 1 };
+      }
+
+      if (priority) {
+        where.priorityRevision = priority.expectedRevision;
+        data.priority = priority.value;
+        data.priorityRevision = { increment: 1 };
+      }
+
+      if (assigneeId) {
+        where.assigneeRevision = assigneeId.expectedRevision;
+        data.assigneeId = assigneeId.value;
+        data.assigneeRevision = { increment: 1 };
+      }
+
+      const updated = await transaction.task.updateMany({ where, data });
+
+      if (updated.count === 0) {
+        throw new ConflictException(
+          'The card changed or became unavailable. Refresh it before retrying.',
+        );
+      }
+
+      const saved = await transaction.task.findUniqueOrThrow({
+        where: { id: task.id },
+        include: { assignee: true },
+      });
+
+      return mapTaskResponse(saved);
+    });
   }
 
   async moveTask(userId: string, taskId: string, dto: MoveTaskDto) {
