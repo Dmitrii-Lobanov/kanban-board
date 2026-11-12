@@ -194,6 +194,7 @@ export function KanbanBoard() {
       columnId: task.columnId,
       position: task.position,
       version: task.version,
+      fieldRevisions: task.fieldRevisions,
     }))
   );
 

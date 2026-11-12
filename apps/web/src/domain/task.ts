@@ -1,5 +1,8 @@
-import { COLUMN_KEYS, type ColumnKey } from "@kanban-board/contracts";
-
+import {
+  COLUMN_KEYS,
+  type ColumnKey,
+  type TaskFieldRevisions,
+} from "@kanban-board/contracts";
 export const TASK_STATUSES = COLUMN_KEYS;
 
 export type TaskStatus = ColumnKey;
@@ -18,4 +21,5 @@ export interface PersistedTask extends Task {
   columnId: string;
   position: number;
   version: number;
+  fieldRevisions: TaskFieldRevisions;
 }
