@@ -56,6 +56,10 @@ describe('TasksService', () => {
   beforeEach(() => {
     prisma = new PrismaService();
     service = new TasksService(prisma);
+
+    jest
+      .spyOn(prisma, '$transaction')
+      .mockImplementation(async (callback) => callback(prisma));
   });
 
   afterEach(() => {
@@ -249,11 +253,11 @@ describe('TasksService', () => {
     );
   });
 
-  it('rejects a stale task version before starting a transaction', async () => {
+  it('rejects a stale task version without writing', async () => {
     jest
       .spyOn(prisma.task, 'findFirst')
       .mockResolvedValue(createTask({ position: 0, version: 4 }));
-    const transaction = jest.spyOn(prisma, '$transaction');
+    const updateMany = jest.spyOn(prisma.task, 'updateMany');
 
     await expect(
       service.moveTask('user-1', 'task-1', {
@@ -264,7 +268,7 @@ describe('TasksService', () => {
     ).rejects.toThrow(
       new ConflictException('Task has been modified by another client.'),
     );
-    expect(transaction).not.toHaveBeenCalled();
+    expect(updateMany).not.toHaveBeenCalled();
   });
 
   it('rejects a missing destination column', async () => {
@@ -298,6 +302,7 @@ describe('TasksService', () => {
   it('rejects a version changed after the initial read', async () => {
     jest.spyOn(prisma.task, 'findFirst').mockResolvedValue(createTask());
     jest.spyOn(prisma.column, 'findFirst').mockResolvedValue(createColumn());
+    jest.spyOn(prisma.task, 'count').mockResolvedValue(0);
     jest.spyOn(prisma.task, 'updateMany').mockResolvedValue({ count: 0 });
     jest
       .spyOn(prisma, '$transaction')
@@ -367,7 +372,11 @@ describe('TasksService', () => {
     ]);
     expect(updateMany).toHaveBeenCalledWith({
       where: { id: 'task-1', version: 3 },
-      data: { position: -2, version: { increment: 1 } },
+      data: {
+        position: -2,
+        version: { increment: 1 },
+        moveRevision: { increment: 1 },
+      },
     });
     expect(response).toMatchObject({
       id: 'task-1',
@@ -425,7 +434,11 @@ describe('TasksService', () => {
     ]);
     expect(updateMany).toHaveBeenCalledWith({
       where: { id: 'task-1', version: 3 },
-      data: { position: -3, version: { increment: 1 } },
+      data: {
+        position: -3,
+        version: { increment: 1 },
+        moveRevision: { increment: 1 },
+      },
     });
   });
 });

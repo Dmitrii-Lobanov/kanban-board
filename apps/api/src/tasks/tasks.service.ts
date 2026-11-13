@@ -1,4 +1,7 @@
-import type { EditTaskRequest } from '@kanban-board/contracts';
+import type {
+  EditTaskRequest,
+  PlaceTaskRequest,
+} from '@kanban-board/contracts';
 import {
   ConflictException,
   Injectable,
@@ -86,7 +89,7 @@ export class TasksService {
 
         return mapTaskResponse(task);
       } catch (error) {
-        if (this.isRetryableCreateConflict(error)) {
+        if (this.isRetryableOrderingConflict(error)) {
           if (attempt < 2) {
             continue;
           }
@@ -327,112 +330,165 @@ export class TasksService {
     });
   }
 
-  async moveTask(userId: string, taskId: string, dto: MoveTaskDto) {
-    const task = await this.prisma.task.findFirst({
-      where: {
-        id: taskId,
-        column: {
-          board: {
-            workspace: {
-              members: {
-                some: {
-                  userId,
-                  role: { in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER] },
+  async moveTask(
+    userId: string,
+    taskId: string,
+    dto: MoveTaskDto | PlaceTaskRequest,
+  ) {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const movedTask = await this.prisma.$transaction(
+          async (transaction) => {
+            const task = await transaction.task.findFirst({
+              where: {
+                id: taskId,
+                column: {
+                  board: {
+                    workspace: {
+                      members: {
+                        some: {
+                          userId,
+                          role: {
+                            in: [WorkspaceRole.OWNER, WorkspaceRole.MEMBER],
+                          },
+                        },
+                      },
+                    },
+                  },
                 },
               },
-            },
+              select: {
+                id: true,
+                columnId: true,
+                position: true,
+                version: true,
+                moveRevision: true,
+              },
+            });
+
+            if (!task) {
+              throw new NotFoundException('Task not found.');
+            }
+
+            const revisionCondition =
+              'expectedMoveRevision' in dto
+                ? { moveRevision: dto.expectedMoveRevision }
+                : { version: dto.expectedVersion };
+
+            if (
+              ('moveRevision' in revisionCondition &&
+                task.moveRevision !== revisionCondition.moveRevision) ||
+              ('version' in revisionCondition &&
+                task.version !== revisionCondition.version)
+            ) {
+              throw new ConflictException(
+                'Task has been modified by another client.',
+              );
+            }
+
+            const destinationColumn = await transaction.column.findFirst({
+              where: {
+                id: dto.columnId,
+                board: {
+                  columns: { some: { id: task.columnId } },
+                },
+              },
+              select: { id: true },
+            });
+
+            if (!destinationColumn) {
+              throw new NotFoundException('Destination column not found.');
+            }
+
+            let destinationPosition: number;
+
+            if ('beforeTaskId' in dto && dto.beforeTaskId !== null) {
+              const anchor = await transaction.task.findFirst({
+                where: {
+                  id: dto.beforeTaskId,
+                  columnId: dto.columnId,
+                },
+                select: { id: true, position: true },
+              });
+
+              if (!anchor || anchor.id === task.id) {
+                throw new ConflictException(
+                  'The destination card is unavailable. Refresh the board and choose a new placement.',
+                );
+              }
+
+              const sourcePrecedesAnchor =
+                task.columnId === dto.columnId &&
+                task.position < anchor.position;
+
+              destinationPosition =
+                anchor.position - (sourcePrecedesAnchor ? 1 : 0);
+            } else {
+              const destinationTaskCount = await transaction.task.count({
+                where: { columnId: dto.columnId, id: { not: task.id } },
+              });
+
+              destinationPosition =
+                'position' in dto
+                  ? Math.min(dto.position, destinationTaskCount)
+                  : destinationTaskCount;
+            }
+
+            const claim = await transaction.task.updateMany({
+              where: { id: task.id, ...revisionCondition },
+              data: {
+                position: -task.position - 1,
+                version: { increment: 1 },
+                moveRevision: { increment: 1 },
+              },
+            });
+
+            if (claim.count !== 1) {
+              throw new ConflictException(
+                'Task has been modified by another client.',
+              );
+            }
+
+            if (task.columnId === dto.columnId) {
+              await this.moveWithinColumn(
+                transaction,
+                task,
+                destinationPosition,
+              );
+            } else {
+              await this.moveAcrossColumns(
+                transaction,
+                task,
+                dto.columnId,
+                destinationPosition,
+              );
+            }
+
+            return transaction.task.update({
+              where: { id: task.id },
+              data: {
+                columnId: dto.columnId,
+                position: destinationPosition,
+              },
+              include: { assignee: true },
+            });
           },
-        },
-      },
-      select: {
-        id: true,
-        columnId: true,
-        position: true,
-        version: true,
-      },
-    });
-
-    if (!task) {
-      throw new NotFoundException('Task not found.');
-    }
-
-    if (task.version !== dto.expectedVersion) {
-      throw new ConflictException('Task has been modified by another client.');
-    }
-
-    const destinationColumn = await this.prisma.column.findFirst({
-      where: {
-        id: dto.columnId,
-        board: {
-          columns: {
-            some: { id: task.columnId },
-          },
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!destinationColumn) {
-      throw new NotFoundException('Destination column not found.');
-    }
-
-    const movedTask = await this.prisma.$transaction(async (transaction) => {
-      const versionClaim = await transaction.task.updateMany({
-        where: {
-          id: task.id,
-          version: dto.expectedVersion,
-        },
-        data: {
-          position: -task.position - 1,
-          version: {
-            increment: 1,
-          },
-        },
-      });
-
-      if (versionClaim.count !== 1) {
-        throw new ConflictException(
-          'Task has been modified by another client.',
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
+
+        return mapTaskResponse(movedTask);
+      } catch (error) {
+        if (!this.isRetryableOrderingConflict(error)) {
+          throw error;
+        }
+
+        if (attempt === 2) {
+          throw new ConflictException(
+            'The board changed while moving the task. Refresh and try again.',
+          );
+        }
       }
-
-      const destinationTaskCount = await transaction.task.count({
-        where: {
-          columnId: dto.columnId,
-          id: {
-            not: task.id,
-          },
-        },
-      });
-
-      const destinationPosition = Math.min(dto.position, destinationTaskCount);
-
-      if (task.columnId === dto.columnId) {
-        await this.moveWithinColumn(transaction, task, destinationPosition);
-      } else {
-        await this.moveAcrossColumns(
-          transaction,
-          task,
-          dto.columnId,
-          destinationPosition,
-        );
-      }
-
-      return transaction.task.update({
-        where: {
-          id: task.id,
-        },
-        data: {
-          columnId: dto.columnId,
-          position: destinationPosition,
-        },
-        include: { assignee: true },
-      });
-    });
-
-    return mapTaskResponse(movedTask);
+    }
   }
 
   private async moveWithinColumn(
@@ -572,7 +628,7 @@ export class TasksService {
     }
   }
 
-  private isRetryableCreateConflict(error: unknown): boolean {
+  private isRetryableOrderingConflict(error: unknown): boolean {
     return (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       (error.code === 'P2002' || error.code === 'P2034')

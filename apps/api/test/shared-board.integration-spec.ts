@@ -216,7 +216,7 @@ describe('shared board access', () => {
     ).toEqual(f.tasks.map((task) => task.id).sort());
   });
 
-  it('baseline: overlapping moves leave a gap after a stale position read', async () => {
+  it('retries an overlapping move using fresh positions', async () => {
     const f = currentFixture();
     const cardA = f.tasks[0];
     const cardB = f.tasks[1];
@@ -237,8 +237,8 @@ describe('shared board access', () => {
               // snapshot yet. Let Bob finish moving A in between.
               await tasks.moveTask(f.bob.id, cardA.id, {
                 columnId: f.columns.done.id,
-                position: 0,
-                expectedVersion: cardA.version,
+                beforeTaskId: null,
+                expectedMoveRevision: cardA.moveRevision,
               });
 
               const currentB = await prisma.task.findUniqueOrThrow({
@@ -264,8 +264,8 @@ describe('shared board access', () => {
 
     await aliceTasks.moveTask(f.alice.id, cardB.id, {
       columnId: f.columns.progress.id,
-      position: 0,
-      expectedVersion: cardB.version,
+      beforeTaskId: null,
+      expectedMoveRevision: cardB.moveRevision,
     });
 
     expect(intercepted).toBe(true);
@@ -288,10 +288,9 @@ describe('shared board access', () => {
       position: 0,
     });
 
-    // This is the defect: the only remaining Todo card is at position 1.
     expect(savedTasks.find((task) => task.id === cardC.id)).toMatchObject({
       columnId: f.columns.todo.id,
-      position: 1,
+      position: 0,
     });
 
     const visibleBoards = await boards.findAll(f.alice.id);
@@ -301,10 +300,77 @@ describe('shared board access', () => {
       throw new Error('Fixture board is missing.');
     }
 
-    expect(() => assertBoardInvariants(board)).toThrow(
-      'positions must be unique and contiguous from zero',
-    );
+    assertBoardInvariants(board);
   });
+
+  it('places a card before its anchor and rejects a stale move revision', async () => {
+    const f = currentFixture();
+    const [card, neighbor, anchor] = f.tasks;
+
+    const moved = await tasks.moveTask(f.alice.id, card.id, {
+      columnId: f.columns.todo.id,
+      beforeTaskId: anchor.id,
+      expectedMoveRevision: card.moveRevision,
+    });
+
+    expect(moved.moveRevision).toBe(card.moveRevision + 1);
+
+    await expect(
+      tasks.moveTask(f.bob.id, card.id, {
+        columnId: f.columns.done.id,
+        beforeTaskId: null,
+        expectedMoveRevision: card.moveRevision,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    const ordered = await prisma.task.findMany({
+      where: { columnId: f.columns.todo.id },
+      orderBy: { position: 'asc' },
+    });
+
+    expect(ordered.map(({ id, position }) => [id, position])).toEqual([
+      [neighbor.id, 0],
+      [card.id, 1],
+      [anchor.id, 2],
+    ]);
+  });
+
+  it.each(['deleted', 'relocated'] as const)(
+    'rejects placement before a %s anchor without changing the board',
+    async (change) => {
+      const f = currentFixture();
+      const [card, anchor] = f.tasks;
+
+      if (change === 'deleted') {
+        await tasks.deleteTask(f.bob.id, anchor.id, {
+          expectedVersion: anchor.version,
+        });
+      } else {
+        await tasks.moveTask(f.bob.id, anchor.id, {
+          columnId: f.columns.done.id,
+          beforeTaskId: null,
+          expectedMoveRevision: anchor.moveRevision,
+        });
+      }
+
+      const readBoardTasks = () =>
+        prisma.task.findMany({
+          where: { column: { boardId: f.board.id } },
+          orderBy: { id: 'asc' },
+        });
+      const before = await readBoardTasks();
+
+      await expect(
+        tasks.moveTask(f.alice.id, card.id, {
+          columnId: f.columns.todo.id,
+          beforeTaskId: anchor.id,
+          expectedMoveRevision: card.moveRevision,
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      expect(await readBoardTasks()).toEqual(before);
+    },
+  );
 
   it('rejects a stale edit without resurrecting a deleted card', async () => {
     const f = currentFixture();

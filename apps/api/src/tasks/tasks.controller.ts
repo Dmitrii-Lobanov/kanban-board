@@ -16,6 +16,7 @@ import { CurrentUserId } from '../auth/current-user-id.decorator';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { DeleteTaskDto } from './dto/delete-task.dto';
 import { parseEditTaskRequest } from './dto/parse-edit-task-request';
+import { PlaceTaskDto } from './dto/place-task.dto';
 import { MoveTaskDto } from './dto/move-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TasksService } from './tasks.service';
@@ -45,6 +46,15 @@ export class TasksController {
     @CurrentUserId() userId: string,
     @Param('taskId') taskId: string,
     @Body() dto: MoveTaskDto,
+  ) {
+    return this.tasksService.moveTask(userId, taskId, dto);
+  }
+
+  @Patch(':taskId/placement')
+  placeTask(
+    @CurrentUserId() userId: string,
+    @Param('taskId') taskId: string,
+    @Body() dto: PlaceTaskDto,
   ) {
     return this.tasksService.moveTask(userId, taskId, dto);
   }
