@@ -38,6 +38,7 @@ const persistedTasks: PersistedTask[] = [
     columnId: "column-todo",
     position: 0,
     version: 1,
+    moveRevision: 1,
     fieldRevisions: {
       title: 1,
       description: 1,
@@ -54,6 +55,7 @@ const persistedTasks: PersistedTask[] = [
     columnId: "column-progress",
     position: 0,
     version: 1,
+    moveRevision: 1,
     fieldRevisions: {
       title: 1,
       description: 1,
@@ -71,6 +73,7 @@ const persistedTasks: PersistedTask[] = [
     columnId: "column-progress",
     position: 1,
     version: 1,
+    moveRevision: 1,
     fieldRevisions: {
       title: 1,
       description: 1,

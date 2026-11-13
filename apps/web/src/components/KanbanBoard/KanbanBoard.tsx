@@ -94,7 +94,7 @@ function BoardContent({
   const handleDropTask = (
     event: DragEvent<HTMLElement>,
     destinationStatus: TaskStatus,
-    destinationPosition: number
+    beforeTaskId: string | null
   ) => {
     event.preventDefault();
 
@@ -102,18 +102,9 @@ function BoardContent({
       event.dataTransfer.getData(TASK_DRAG_DATA_TYPE) ||
       event.dataTransfer.getData("text/plain");
 
-    if (!taskId) {
-      return;
+    if (taskId) {
+      changeTaskStatus(taskId, destinationStatus, beforeTaskId);
     }
-
-    const sourceTask = tasks.find(task => task.id === taskId);
-    const adjustedPosition =
-      sourceTask?.status === destinationStatus &&
-      sourceTask.position < destinationPosition
-        ? destinationPosition - 1
-        : destinationPosition;
-
-    changeTaskStatus(taskId, destinationStatus, adjustedPosition);
   };
 
   return (
@@ -133,9 +124,6 @@ function BoardContent({
             title={column.title}
             status={column.status}
             tasks={tasksByStatus[column.status]}
-            appendPosition={
-              tasks.filter(task => task.status === column.status).length
-            }
             pendingTaskIds={pendingTaskIds}
             taskErrors={taskErrors}
             members={members}
@@ -194,6 +182,7 @@ export function KanbanBoard() {
       columnId: task.columnId,
       position: task.position,
       version: task.version,
+      moveRevision: task.moveRevision,
       fieldRevisions: task.fieldRevisions,
     }))
   );

@@ -22,4 +22,5 @@ export interface PersistedTask extends Task {
   position: number;
   version: number;
   fieldRevisions: TaskFieldRevisions;
+  moveRevision: number;
 }

@@ -196,7 +196,7 @@ function createMovedTaskResponse(
       priority: 1,
       assigneeId: 1,
     },
-    moveRevision: 1,
+    moveRevision: 2,
     columnId,
     createdAt: "2026-07-23T12:00:00.000Z",
     updatedAt: "2026-07-23T12:01:00.000Z",
@@ -482,8 +482,8 @@ describe("KanbanBoard", () => {
       "task-1",
       {
         columnId: "column-progress",
-        position: 1,
-        expectedVersion: 1,
+        beforeTaskId: null,
+        expectedMoveRevision: 1,
       },
       "test-token"
     );
@@ -549,8 +549,8 @@ describe("KanbanBoard", () => {
         "task-1",
         {
           columnId: "column-progress",
-          position: 0,
-          expectedVersion: 1,
+          beforeTaskId: "task-4",
+          expectedMoveRevision: 1,
         },
         "test-token"
       );

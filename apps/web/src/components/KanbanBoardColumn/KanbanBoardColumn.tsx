@@ -13,7 +13,6 @@ interface KanbanBoardColumnProps {
   title: string;
   status: TaskStatus;
   tasks: PersistedTask[];
-  appendPosition: number;
   pendingTaskIds: ReadonlySet<string>;
   taskErrors: Record<string, string | undefined>;
   members: WorkspaceMemberResponse[];
@@ -25,7 +24,7 @@ interface KanbanBoardColumnProps {
   onDropTask: (
     event: DragEvent<HTMLElement>,
     destinationStatus: TaskStatus,
-    destinationPosition: number
+    beforeTaskId: string | null
   ) => void;
 }
 
@@ -33,7 +32,6 @@ export function KanbanBoardColumn({
   title,
   status,
   tasks,
-  appendPosition,
   pendingTaskIds,
   taskErrors,
   members,
@@ -78,7 +76,7 @@ export function KanbanBoardColumn({
 
   const handleDrop = (event: DragEvent<HTMLElement>) => {
     setIsDragOver(false);
-    onDropTask(event, status, appendPosition);
+    onDropTask(event, status, null);
   };
 
   const handleCreateTask = async (event: FormEvent<HTMLFormElement>) => {
@@ -223,7 +221,7 @@ export function KanbanBoardColumn({
               onDrop={event => {
                 event.stopPropagation();
                 setIsDragOver(false);
-                onDropTask(event, status, task.position);
+                onDropTask(event, status, task.id);
               }}
             />
           ))

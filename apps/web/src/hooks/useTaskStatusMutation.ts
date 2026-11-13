@@ -29,7 +29,7 @@ interface UseTaskStatusMutationResult {
   changeTaskStatus: (
     taskId: string,
     nextStatus: TaskStatus,
-    destinationPosition?: number
+    beforeTaskId?: string | null
   ) => void;
 }
 
@@ -90,30 +90,41 @@ export function useTaskStatusMutation(
   const changeTaskStatus = (
     taskId: string,
     nextStatus: TaskStatus,
-    requestedPosition?: number
+    beforeTaskId: string | null = null
   ) => {
     const task = optimisticTasks.find(currentTask => currentTask.id === taskId);
 
     if (
       !task ||
-      task.status === nextStatus ||
+      beforeTaskId === taskId ||
       pendingTaskIdsRef.current.has(taskId)
     ) {
       return;
     }
 
-    markTaskPending(taskId);
-
     const destinationColumnId = columnIdsByStatus[nextStatus];
-    const destinationTaskCount = optimisticTasks.filter(
-      currentTask =>
-        currentTask.status === nextStatus && currentTask.id !== taskId
-    ).length;
-    const destinationPosition = Math.min(
-      requestedPosition ?? destinationTaskCount,
-      destinationTaskCount
-    );
+    const destinationTasks = optimisticTasks
+      .filter(
+        currentTask =>
+          currentTask.columnId === destinationColumnId &&
+          currentTask.id !== taskId
+      )
+      .sort((first, second) => first.position - second.position);
 
+    const destinationPosition =
+      beforeTaskId === null
+        ? destinationTasks.length
+        : destinationTasks.findIndex(task => task.id === beforeTaskId);
+
+    if (
+      destinationPosition === -1 ||
+      (task.columnId === destinationColumnId &&
+        task.position === destinationPosition)
+    ) {
+      return;
+    }
+
+    markTaskPending(taskId);
     setTaskErrors(currentErrors => ({
       ...currentErrors,
       [taskId]: undefined,
@@ -132,8 +143,8 @@ export function useTaskStatusMutation(
           taskId,
           {
             columnId: destinationColumnId,
-            position: destinationPosition,
-            expectedVersion: task.version,
+            beforeTaskId,
+            expectedMoveRevision: task.moveRevision,
           },
           await getToken()
         );
@@ -147,7 +158,11 @@ export function useTaskStatusMutation(
             movedTask.position
           ).map(currentTask =>
             currentTask.id === taskId
-              ? { ...currentTask, version: movedTask.version }
+              ? {
+                  ...currentTask,
+                  version: movedTask.version,
+                  moveRevision: movedTask.moveRevision,
+                }
               : currentTask
           )
         );
