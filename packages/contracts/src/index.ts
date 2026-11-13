@@ -29,6 +29,12 @@ export type MoveTaskRequest = {
   expectedVersion: number;
 };
 
+export type PlaceTaskRequest = {
+  columnId: string;
+  beforeTaskId: string | null;
+  expectedMoveRevision: number;
+};
+
 export type CreateTaskRequest = {
   title: string;
   columnId: string;
