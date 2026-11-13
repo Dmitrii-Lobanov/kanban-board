@@ -1,4 +1,4 @@
-import type { UpdateTaskRequest } from "@kanban-board/contracts";
+import type { EditTaskRequest } from "@kanban-board/contracts";
 import { useAuth } from "@clerk/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -8,7 +8,7 @@ import { boardsQueryKey } from "../features/boards/hooks/useBoards";
 
 type UpdateTaskVariables = {
   taskId: string;
-  request: UpdateTaskRequest;
+  request: EditTaskRequest;
 };
 
 export function useUpdateTaskMutation() {

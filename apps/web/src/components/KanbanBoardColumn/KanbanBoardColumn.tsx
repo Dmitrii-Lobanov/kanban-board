@@ -1,7 +1,7 @@
 import { type DragEvent, type FormEvent, useState } from "react";
 import type {
   CreateTaskRequest,
-  UpdateTaskRequest,
+  EditTaskRequest,
   WorkspaceMemberResponse,
 } from "@kanban-board/contracts";
 import type { PersistedTask, TaskStatus } from "../../domain/task";
@@ -19,7 +19,7 @@ interface KanbanBoardColumnProps {
   members: WorkspaceMemberResponse[];
   onCreateTask: (request: Omit<CreateTaskRequest, "columnId">) => Promise<void>;
   onDeleteTask: (taskId: string, expectedVersion: number) => Promise<void>;
-  onUpdateTask: (taskId: string, request: UpdateTaskRequest) => Promise<void>;
+  onUpdateTask: (taskId: string, request: EditTaskRequest) => Promise<void>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
   onDropTask: (

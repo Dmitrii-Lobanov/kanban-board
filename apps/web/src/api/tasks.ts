@@ -3,7 +3,7 @@ import type {
   DeleteTaskRequest,
   MoveTaskRequest,
   TaskResponse,
-  UpdateTaskRequest,
+  EditTaskRequest,
 } from "@kanban-board/contracts";
 import { parseTaskResponse } from "./boards";
 import { apiRequest } from "./client";
@@ -55,7 +55,7 @@ export async function moveTask(
 
 export async function updateTask(
   taskId: string,
-  request: UpdateTaskRequest,
+  request: EditTaskRequest,
   token?: string | null
 ): Promise<TaskResponse> {
   const response = await apiRequest(

@@ -364,6 +364,71 @@ describe("KanbanBoard", () => {
     });
   });
 
+  it("keeps the draft and its original revision after a refresh", async () => {
+    const user = userEvent.setup();
+    const { queryClient } = await renderBoard();
+
+    const card = getTaskCard(optimisticTaskTitle);
+    expect(card).not.toBeNull();
+
+    await user.click(within(card!).getByRole("button", { name: "Edit" }));
+    const titleInput = within(card!).getByLabelText("Title");
+    await user.clear(titleInput);
+    await user.type(titleInput, "Alice's draft");
+
+    const refreshedBoards = initialBoards.map(board => ({
+      ...board,
+      columns: board.columns.map(column => ({
+        ...column,
+        tasks: column.tasks.map(task =>
+          task.id === "task-1"
+            ? {
+                ...task,
+                title: "Bob's saved title",
+                version: 2,
+                fieldRevisions: { ...task.fieldRevisions, title: 2 },
+              }
+            : task
+        ),
+      })),
+    }));
+
+    mockedGetBoards.mockResolvedValue(refreshedBoards);
+    mockedUpdateTask.mockRejectedValueOnce(new ApiError("Conflict", 409));
+
+    await act(async () => {
+      await queryClient.invalidateQueries();
+    });
+
+    const refreshedTitle = await screen.findByRole("heading", {
+      name: "Bob's saved title",
+    });
+    const refreshedCard = refreshedTitle.closest("article")!;
+    expect(within(refreshedCard).getByLabelText("Title")).toHaveValue(
+      "Alice's draft"
+    );
+
+    await user.click(
+      within(refreshedCard).getByRole("button", { name: "Save changes" })
+    );
+
+    expect(mockedUpdateTask).toHaveBeenCalledWith(
+      "task-1",
+      {
+        changes: {
+          title: { value: "Alice's draft", expectedRevision: 1 },
+        },
+      },
+      "test-token"
+    );
+
+    const alert = await within(refreshedCard).findByRole("alert");
+    expect(alert).toHaveTextContent("Your draft is still here.");
+    expect(within(refreshedCard).getByLabelText("Title")).toHaveValue(
+      "Alice's draft"
+    );
+  });
+
   it("requires confirmation before deleting a versioned task", async () => {
     mockedDeleteTask.mockResolvedValueOnce();
     const user = userEvent.setup();

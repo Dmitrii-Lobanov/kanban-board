@@ -1,5 +1,5 @@
 import type {
-  UpdateTaskRequest,
+  EditTaskRequest,
   WorkspaceMemberResponse,
 } from "@kanban-board/contracts";
 import { type DragEvent, type FormEvent, useId, useState } from "react";
@@ -14,7 +14,7 @@ interface TaskCardProps {
   error?: string;
   members: WorkspaceMemberResponse[];
   onDeleteTask: (taskId: string, expectedVersion: number) => Promise<void>;
-  onUpdateTask: (taskId: string, request: UpdateTaskRequest) => Promise<void>;
+  onUpdateTask: (taskId: string, request: EditTaskRequest) => Promise<void>;
   onStatusChange: (taskId: string, status: TaskStatus) => void;
   onDragStart: (event: DragEvent<HTMLElement>, taskId: string) => void;
   onDrop: (event: DragEvent<HTMLElement>) => void;
@@ -129,7 +129,7 @@ export function TaskCard({
     } catch (updateError) {
       setEditError(
         updateError instanceof ApiError && updateError.status === 409
-          ? "This task changed elsewhere. Review the refreshed task and try again."
+          ? "This task changed elsewhere. Your draft is still here. Copy any text you want to keep before closing and reopening the editor."
           : "Unable to update the task. Please try again."
       );
     } finally {
@@ -147,7 +147,7 @@ export function TaskCard({
       setDeleteError(
         deleteRequestError instanceof ApiError &&
           deleteRequestError.status === 409
-          ? "This task changed elsewhere. Your draft is still here. Copy any text you want to keep before closing and reopening the editor."
+          ? "This task changed elsewhere. Review the refreshed task and try again."
           : "Unable to delete the task. Please try again."
       );
       setIsDeleting(false);
