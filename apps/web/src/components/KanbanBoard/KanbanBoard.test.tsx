@@ -353,11 +353,11 @@ describe("KanbanBoard", () => {
       expect(mockedUpdateTask).toHaveBeenCalledWith(
         "task-1",
         {
-          title: "Updated portfolio task",
-          description: "Ready for review",
-          priority: "HIGH",
-          expectedVersion: 1,
-          assigneeId: null,
+          changes: {
+            title: { value: "Updated portfolio task", expectedRevision: 1 },
+            description: { value: "Ready for review", expectedRevision: 1 },
+            priority: { value: "HIGH", expectedRevision: 1 },
+          },
         },
         "test-token"
       );

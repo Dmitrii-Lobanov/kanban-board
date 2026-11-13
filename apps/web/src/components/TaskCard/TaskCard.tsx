@@ -50,6 +50,7 @@ export function TaskCard({
   onDrop,
 }: TaskCardProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [editBaseline, setEditBaseline] = useState(task);
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState<string>();
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -80,17 +81,50 @@ export function TaskCard({
       return;
     }
 
+    const changes: EditTaskRequest["changes"] = {};
+    const revisions = editBaseline.fieldRevisions;
+    const nextTitle = title.trim();
+    const nextDescription = description.trim() || null;
+    const nextAssigneeId = assigneeId || null;
+
+    if (nextTitle !== editBaseline.title.trim()) {
+      changes.title = {
+        value: nextTitle,
+        expectedRevision: revisions.title,
+      };
+    }
+
+    if (nextDescription !== (editBaseline.description?.trim() || null)) {
+      changes.description = {
+        value: nextDescription,
+        expectedRevision: revisions.description,
+      };
+    }
+
+    if (priority !== editBaseline.priority) {
+      changes.priority = {
+        value: priority,
+        expectedRevision: revisions.priority,
+      };
+    }
+
+    if (nextAssigneeId !== editBaseline.assigneeId) {
+      changes.assigneeId = {
+        value: nextAssigneeId,
+        expectedRevision: revisions.assigneeId,
+      };
+    }
+
+    if (Object.keys(changes).length === 0) {
+      setIsEditing(false);
+      return;
+    }
+
     setEditError(undefined);
     setIsSaving(true);
 
     try {
-      await onUpdateTask(task.id, {
-        title,
-        description,
-        priority,
-        expectedVersion: task.version,
-        assigneeId: assigneeId || null,
-      });
+      await onUpdateTask(task.id, { changes });
       setIsEditing(false);
     } catch (updateError) {
       setEditError(
@@ -113,7 +147,7 @@ export function TaskCard({
       setDeleteError(
         deleteRequestError instanceof ApiError &&
           deleteRequestError.status === 409
-          ? "This task changed elsewhere. Review the refreshed task and try again."
+          ? "This task changed elsewhere. Your draft is still here. Copy any text you want to keep before closing and reopening the editor."
           : "Unable to delete the task. Please try again."
       );
       setIsDeleting(false);
@@ -145,6 +179,7 @@ export function TaskCard({
           disabled={isPending || isSaving}
           onClick={() => {
             setTitle(task.title);
+            setEditBaseline(task);
             setDescription(task.description ?? "");
             setPriority(task.priority);
             setAssigneeId(task.assigneeId ?? "");

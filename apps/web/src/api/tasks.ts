@@ -59,7 +59,7 @@ export async function updateTask(
   token?: string | null
 ): Promise<TaskResponse> {
   const response = await apiRequest(
-    `/tasks/${taskId}`,
+    `/tasks/${taskId}/fields`,
     {
       method: "PATCH",
       body: JSON.stringify(request),
